@@ -82,7 +82,8 @@ public:
   void is_string(int, const char *);
   void InitGraphicsEngine(int, char** );
   void RunGraphicsEngine();
-
+  void PrintData();
+  
   std::pair<bool, const char *> FindSetting(const char *);
   
   template <typename T> T GetValue(const char *, int);

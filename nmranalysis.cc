@@ -31,18 +31,21 @@ int main(int argc, char *argv[])
     
   int event_number = nmr->GetValue<int>("EventNum", 0);
 
-
   int steps = nmr->GetValue<int>("ScanSteps", 0);
 
   float central_frequency = nmr->GetValue<double>("RFFreq", 0);
+
+  // nmr->PrintData();
   
+
   TH1F *hist = new TH1F("hist", "hist", steps, central_frequency - 0.4, central_frequency + 0.4);
 
-  for(unsigned int i = 0; i < (unsigned int)(nmr->entry.front()->data.size()); i++)
+  for(unsigned int i = 0; i < (unsigned int)(nmr->entry.size()); i++)
     {
-      // only looking at the first entry for the moment ===> .front() is used
-      nmr->entry.front()->frequency.push_back( (central_frequency - 0.4) + i*(0.8/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
-      hist->Fill(nmr->entry.front()->frequency.back(), nmr->entry.front()->data[i]);
+      for(unsigned int j = 0; j < (unsigned int)(nmr->entry.at(i)->data.size()); j++){
+	nmr->entry.at(i)->frequency.push_back( (central_frequency - 0.4) + j*(0.8/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
+	hist->Fill(nmr->entry.at(i)->frequency.back(), nmr->entry.at(i)->data[j]);
+      }
     }
   
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);

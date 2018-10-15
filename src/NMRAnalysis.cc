@@ -100,15 +100,22 @@ int NMRAnalysis::OpenFiles()
   return(0);
 }
 
+void NMRAnalysis::PrintData()
+{
+  for(unsigned int i = 0; i < entry.size(); i++){
+    for(unsigned int j = 0; j < (entry.at(i)->data.size()); j++){
+      std::cout << __FUNCTION__ << ":: [" << i <<", " << j << "] " << entry.at(i)->data.at(j) << std::endl;
+    }
+  }
+  return;  
+}
+
 void NMRAnalysis::ReadFiles(){
   this->ReadConfigurationMap();
 
   // Read in data file
   std::cout << "Reading data file." << std::endl;
   std::string line;
-  // std::vector< std::string > SplitVec;
-  
-  // char *token;
 
   while(!data_file.eof()){
     std::getline(data_file, line);
@@ -131,7 +138,6 @@ void NMRAnalysis::ReadFiles(){
   bool bFirstLineRead = false;
   std::pair <bool, const char *> out;  
   unsigned int iter = 0;
-  // std::vector <std::string> SplitVecData;
 
   
   while(!config_file.eof()){
@@ -154,7 +160,7 @@ void NMRAnalysis::ReadFiles(){
     else{ 
       //      This assumes you have a csv file that follows the structure given in the first line of the configuration file.
 	for(std::vector<config_data *>::iterator it = configuration.begin(); it != configuration.end(); ++it){
-	  	  
+	  
 	  if((unsigned)strlen(SplitVecData.at(iter).c_str()) == 0){
 	   (*it)->values.push_back("NA");
 	   }
