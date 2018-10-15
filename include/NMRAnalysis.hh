@@ -23,6 +23,7 @@
 // BOOST c++ libraries
 
 #include <boost/any.hpp>
+#include <boost/algorithm/string.hpp>
 
 // Custom libraries
 
@@ -45,7 +46,7 @@ private:
   };
 
   struct config_data {
-    char * setting;          
+    const char * setting;          
     std::vector <boost::any> values;     // Frequencies making up the total frequency range
   };
 
@@ -66,6 +67,9 @@ public:
   std::vector <run *> entry;
   std::vector <data_type *> config_dict;
   std::vector <config_data *> configuration;
+  std::vector< std::string > SplitVec;
+  std::vector< std::string > SplitVecData;
+
   
   NMRAnalysis();
   ~NMRAnalysis();
@@ -78,7 +82,7 @@ public:
   void is_string(int, const char *);
   void InitGraphicsEngine(int, char** );
   void RunGraphicsEngine();
-  
+
   std::pair<bool, const char *> FindSetting(const char *);
   
   template <typename T> T GetValue(const char *, int);
@@ -102,11 +106,12 @@ template <typename T> std::vector<T> NMRAnalysis::Get(const char *key){
     
 template <typename T> T NMRAnalysis::GetValue(const char *key, int index){
   for(std::vector <config_data *>::iterator it = configuration.begin(); it != configuration.end(); ++it){
+   
     if(strcmp((*it)->setting, key) == 0){
       return boost::any_cast<T>((*it)->values.at(index));
     }
   }
-  std::cout << __FUNCTION__ << ":: Failed to find value at index. Exiting." << std::endl;
+  std::cout << __FUNCTION__ << ":: Failed to find value at index:: " << key << ":" << index << " Exiting." << std::endl;
   exit(1);
 }
 #endif

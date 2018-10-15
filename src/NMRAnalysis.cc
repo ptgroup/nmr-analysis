@@ -1,3 +1,5 @@
+
+
 #ifndef nmr_analysis_cc
 #define nmr_analysis_cc
 
@@ -58,7 +60,6 @@ std::pair<bool, const char *> NMRAnalysis::FindSetting(const char *param){
 
 int NMRAnalysis::OpenFiles()
 {
-
   std::string filename;
 
   if(!bFilePrefixSet){
@@ -66,10 +67,10 @@ int NMRAnalysis::OpenFiles()
     exit(1);
   }
   
-  std::cout << "Reading files with prefix: " << fFilePrefix << std::endl;
+  std::cout << "opening files with prefix: " << fFilePrefix << std::endl;
  
   filename = Form("data/%s.csv", fFilePrefix.c_str());
-  std::cout << "Reading ..... " << filename << std::endl;
+  std::cout << "Opening ..... " << filename << std::endl;
   
   config_file.open(filename, std::fstream::in);
  
@@ -84,7 +85,8 @@ int NMRAnalysis::OpenFiles()
 
   filename = Form("data/%s-PolySignal.csv", fFilePrefix.c_str());
   data_file.open(filename, std::fstream::in);
-
+  std::cout << "Opening ..... " << filename << std::endl;
+  
   if( !(data_file.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening file: " << std::endl;
     bDataFileLoaded = false;
@@ -93,6 +95,8 @@ int NMRAnalysis::OpenFiles()
   else
     bDataFileLoaded = true;
 
+  std::cout << "Finished opening files." << std::endl;
+  
   return(0);
 }
 
@@ -100,84 +104,89 @@ void NMRAnalysis::ReadFiles(){
   this->ReadConfigurationMap();
 
   // Read in data file
-
+  std::cout << "Reading data file." << std::endl;
   std::string line;
-
-  char *token;
+  // std::vector< std::string > SplitVec;
+  
+  // char *token;
 
   while(!data_file.eof()){
     std::getline(data_file, line);
-    token = new char[line.size() + 1];
-    strcpy(token, line.c_str());
-    token = strtok(token, " ,\t");
+    if((unsigned)strlen(line.c_str()) == 0) continue;
+    
+    boost::split(SplitVec, line, boost::is_any_of(","));
 
-    entry.push_back(new run); 
-    entry.back()->event = atoi(token);
-
-    token = strtok(NULL, " ,\t");
-    while(token){
-      if(!token){
-	entry.back()->data.push_back(0);
-	break;
-      }
-      entry.back()->data.push_back(atof(token));
-      token = strtok(NULL, " ,\t");
+    entry.push_back(new run);
+    entry.back()->event = atoi(SplitVec.front().c_str());
+    
+    for(std::vector<std::string>::iterator it = SplitVec.begin()+1; it != SplitVec.end(); ++it){
+      entry.back()->data.push_back(atof((*it).c_str()));
     }
   }
+  
+  // Read in configuration file
 
-  // Read in cofiguration file
+  std::cout << "Reading configuration file." << std::endl;
   
   bool bFirstLineRead = false;
   std::pair <bool, const char *> out;  
+  unsigned int iter = 0;
+  // std::vector <std::string> SplitVecData;
 
+  
   while(!config_file.eof()){
     std::getline(config_file, line);
-    token = new char[line.size() + 1];
-    strcpy(token, line.c_str());
-    token = strtok(token, ",");
+    if((unsigned)strlen(line.c_str()) == 0) continue;
+    
+    SplitVecData.clear();
+    
+    if(bFirstLineRead)
+      boost::split(SplitVecData, line, boost::is_any_of(","));
+    
     if(!bFirstLineRead){
-      while(token){
+      boost::split(SplitVec, line, boost::is_any_of(","));
+      for(std::vector<std::string>::iterator it = SplitVec.begin(); it != SplitVec.end(); ++it){
 	configuration.push_back(new config_data);
-	configuration.back()->setting = token;
-	token = strtok(NULL, ",");
+	configuration.back()->setting = (*it).c_str();
       }
+      bFirstLineRead = true;
     }
     else{ 
-      // This assumes you have a csv file that follows the structure given in the first line of the configuration file.
-      for(std::vector<config_data *>::iterator it = configuration.begin(); it != configuration.end(); ++it){
-	if(!token){
-	  (*it)->values.push_back(new char *);
+      //      This assumes you have a csv file that follows the structure given in the first line of the configuration file.
+	for(std::vector<config_data *>::iterator it = configuration.begin(); it != configuration.end(); ++it){
+	  	  
+	  if((unsigned)strlen(SplitVecData.at(iter).c_str()) == 0){
+	   (*it)->values.push_back("NA");
+	   }
+	   else{
+	     out = FindSetting((*it)->setting);
+	   
+	     if(strcmp(out.second, "int") == 0){
+	       (*it)->values.push_back(atoi(SplitVecData.at(iter).c_str()));
+	     }
+	     else if(strcmp(out.second, "float") == 0){
+	       (*it)->values.push_back(atof(SplitVecData.at(iter).c_str() ));
+	     }
+	     else if(strcmp(out.second, "string") == 0){
+	       (*it)->values.push_back(SplitVecData.at(iter));
+	     }
+	     else{
+	       (*it)->values.push_back(SplitVecData.at(iter));
+	       continue;
+	     }
+	   }
+	  ++iter;
 	}
-	else{
-	  out = FindSetting((*it)->setting);	  
-	  if(strcmp(out.second, "int") == 0){
-	    (*it)->values.push_back(atoi(token));
-	  }
-	  else if(strcmp(out.second, "float") == 0){
-	    (*it)->values.push_back(atof(token));
-	  }
-	  else if(strcmp(out.second, "string") == 0){
-	    (*it)->values.push_back(std::string(token));
-	  }
-	  else{
-	    (*it)->values.push_back(token);
-	  }
-	}
-	token = strtok(NULL, ",");
-      }
+	iter = 0;
     }
-    bFirstLineRead = true;
   }
-  
   return;
-  
 }
 
 void NMRAnalysis::is_string(int value, const char *key)
 {
-
-  return;
   
+  return;
 }
 
 void NMRAnalysis::InitGraphicsEngine(int Argc, char **Argv)
