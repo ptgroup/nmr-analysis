@@ -74,8 +74,10 @@ public:
   NMRAnalysis();
   ~NMRAnalysis();
   
-  int OpenFiles();
-
+  int OpenConfigFile();
+  int OpenDataFile();
+  
+  void ReadDataFile();
   void ReadFiles();
   void GetOptions(char **);
   void ReadConfigurationMap();

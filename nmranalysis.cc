@@ -26,20 +26,23 @@ int main(int argc, char *argv[])
   nmr->GetOptions(argv);
   if(nmr->bGraphicsShow) nmr->InitGraphicsEngine(argc, argv); 
 
-  nmr->OpenFiles();
-  nmr->ReadFiles();
+  nmr->OpenDataFile();
+  //  nmr->OpenConfigFile();
+  nmr->ReadDataFile();
     
-  int event_number = nmr->GetValue<int>("EventNum", 0);
+  // int event_number = nmr->GetValue<int>("EventNum", 0);
 
-  int steps = nmr->GetValue<int>("ScanSteps", 0);
+  // int steps = nmr->GetValue<int>("ScanSteps", 0);
+  int steps = 400;
 
-  float central_frequency = nmr->GetValue<double>("RFFreq", 0);
+  // float central_frequency = nmr->GetValue<double>("RFFreq", 0);
+  float central_frequency = 224.4;
 
   // nmr->PrintData();
   
 
   TH1F *hist = new TH1F("hist", "hist", steps, central_frequency - 0.4, central_frequency + 0.4);
-
+  
   for(unsigned int i = 0; i < (unsigned int)(nmr->entry.size()); i++)
     {
       for(unsigned int j = 0; j < (unsigned int)(nmr->entry.at(i)->data.size()); j++){
@@ -50,7 +53,7 @@ int main(int argc, char *argv[])
   
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
   canvas->cd();
-  
+  hist->Smooth(1);
   hist->Draw("hist");
   std::cout << "Area: " << hist->Integral() << std::endl;
 

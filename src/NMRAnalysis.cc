@@ -58,7 +58,7 @@ std::pair<bool, const char *> NMRAnalysis::FindSetting(const char *param){
   return std::pair<bool, const char *>(false, "Failure");  
 }
 
-int NMRAnalysis::OpenFiles()
+int NMRAnalysis::OpenConfigFile()
 {
   std::string filename;
 
@@ -81,8 +81,23 @@ int NMRAnalysis::OpenFiles()
   }
   else
     bConfigFileLoaded = true;
-  
 
+  std::cout << "Finished opening config file." << std::endl;
+  
+  return(0);
+}
+
+int NMRAnalysis::OpenDataFile()
+{
+  std::string filename;
+
+  if(!bFilePrefixSet){
+    std::cerr << "No file prefix given. Please use --file-prefix <prefix> as a command-line argument." << std::endl;
+    exit(1);
+  }
+  
+  std::cout << "opening files with prefix: " << fFilePrefix << std::endl;
+ 
   filename = Form("data/%s-PolySignal.csv", fFilePrefix.c_str());
   data_file.open(filename, std::fstream::in);
   std::cout << "Opening ..... " << filename << std::endl;
@@ -95,7 +110,7 @@ int NMRAnalysis::OpenFiles()
   else
     bDataFileLoaded = true;
 
-  std::cout << "Finished opening files." << std::endl;
+  std::cout << "Finished opening data file." << std::endl;
   
   return(0);
 }
@@ -108,6 +123,29 @@ void NMRAnalysis::PrintData()
     }
   }
   return;  
+}
+
+void NMRAnalysis::ReadDataFile(){
+  this->ReadConfigurationMap();
+
+  // Read in data file
+  std::cout << "Reading data file." << std::endl;
+  std::string line;
+
+  while(!data_file.eof()){
+    std::getline(data_file, line);
+    if((unsigned)strlen(line.c_str()) == 0) continue;
+    
+    boost::split(SplitVec, line, boost::is_any_of(",\t"));
+
+    entry.push_back(new run);
+    entry.back()->event = atoi(SplitVec.front().c_str());
+    
+    for(std::vector<std::string>::iterator it = SplitVec.begin()+1; it != SplitVec.end(); ++it){
+      entry.back()->data.push_back(atof((*it).c_str()));
+    }
+  }
+  return;
 }
 
 void NMRAnalysis::ReadFiles(){
