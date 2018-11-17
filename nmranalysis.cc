@@ -16,6 +16,7 @@
 #include "TAxis.h"
 #include "TF1.h"
 #include "TH1.h"
+#include "TSpectrum.h"
 
 int main(int argc, char *argv[])
 {
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
   // int event_number = nmr->GetValue<int>("EventNum", 0);
 
   // int steps = nmr->GetValue<int>("ScanSteps", 0);
-  int steps = 400;
+  int steps = 500;
 
   // float central_frequency = nmr->GetValue<double>("RFFreq", 0);
   float central_frequency = 224.4;
@@ -47,17 +48,32 @@ int main(int argc, char *argv[])
     {
       for(unsigned int j = 0; j < (unsigned int)(nmr->entry.at(i)->data.size()); j++){
 	nmr->entry.at(i)->frequency.push_back( (central_frequency - 0.4) + j*(0.8/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
-	hist->Fill(nmr->entry.at(i)->frequency.back(), nmr->entry.at(i)->data[j]);
+	hist->Fill(nmr->entry.at(i)->frequency.back(), -(nmr->entry.at(i)->data[j]));
       }
     }
+
+  //  for(int i = 0; i < 10; i++)
+
   
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
   canvas->cd();
+
   hist->Smooth(1);
   hist->Draw("hist");
+
   std::cout << "Area: " << hist->Integral() << std::endl;
 
+  TSpectrum *s = new TSpectrum(3);
+  int npeaks = s->Search(hist,3,"nodraw",1.0e-2);
+
+  std::cout << "Peaks found: " << npeaks << " "
+   	    << s->GetPositionX()[0] << " " << s->GetPositionY()[0] << " "
+   	    << s->GetPositionX()[1] << " " << s->GetPositionY()[1] << " "
+	    << s->GetPositionX()[2] << " " << s->GetPositionY()[2] << " " << std::endl;
+
+  std::cout << "Minimum: " << hist->GetBinContent(hist->GetMinimumBin()) << std::endl;
   // ****************************************************************************************
+
   
   if(nmr->bGraphicsShow){
     nmr->RunGraphicsEngine(); 
