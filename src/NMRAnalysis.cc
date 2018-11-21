@@ -98,8 +98,8 @@ int NMRAnalysis::OpenDataFile()
   
   std::cout << "opening files with prefix: " << fFilePrefix << std::endl;
  
-  // filename = Form("data/%s-PolySignal.csv", fFilePrefix.c_str());
-  filename = Form("data/%s.csv", fFilePrefix.c_str());
+  filename = Form("data/%s-RawSignal.csv", fFilePrefix.c_str());
+  // filename = Form("data/%s.csv", fFilePrefix.c_str());
   data_file.open(filename, std::fstream::in);
   std::cout << "Opening ..... " << filename << std::endl;
   

@@ -17,6 +17,7 @@
 #include "TF1.h"
 #include "TH1.h"
 #include "TSpectrum.h"
+#include "TStyle.h"
 
 int main(int argc, char *argv[])
 {
@@ -28,19 +29,14 @@ int main(int argc, char *argv[])
   if(nmr->bGraphicsShow) nmr->InitGraphicsEngine(argc, argv); 
 
   nmr->OpenDataFile();
-  //  nmr->OpenConfigFile();
-  nmr->ReadDataFile();
+  nmr->OpenConfigFile();
+  nmr->ReadFiles();
     
-  // int event_number = nmr->GetValue<int>("EventNum", 0);
+  int event_number = nmr->GetValue<int>("EventNum", 0);
+  int steps = nmr->GetValue<int>("ScanSteps", 0);
 
-  // int steps = nmr->GetValue<int>("ScanSteps", 0);
-  int steps = 500;
+  float central_frequency = nmr->GetValue<double>("RFFreq", 0);
 
-  // float central_frequency = nmr->GetValue<double>("RFFreq", 0);
-  float central_frequency = 224.4;
-
-  // nmr->PrintData();
-  
 
   TH1F *hist = new TH1F("hist", "hist", steps, central_frequency - 0.4, central_frequency + 0.4);
   
@@ -50,30 +46,31 @@ int main(int argc, char *argv[])
 	nmr->entry.at(i)->frequency.push_back( (central_frequency - 0.4) + j*(0.8/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
 	hist->Fill(nmr->entry.at(i)->frequency.back(), -(nmr->entry.at(i)->data[j]));
       }
-    }
-
-  //  for(int i = 0; i < 10; i++)
+    } 
 
   
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
-  canvas->cd();
+  canvas->Divide(1,2);
+  canvas->cd(1);
 
+  gStyle->SetOptStat(0);
+  
   hist->Smooth(1);
+  hist->SetLineWidth(2);
+  hist->SetTitle(Form("Average Proton NMR Signal: Event# %d", event_number));
   hist->Draw("hist");
 
-  std::cout << "Area: " << hist->Integral() << std::endl;
+  TH1F *background = (TH1F *)hist->ShowBackground(100, "same");
+  TH1F *difference = (TH1F *)hist->Clone();
+  difference->SetName("diff");
+  difference->Add(background, -1.0);
+  
+  canvas->cd(2);
+  difference->SetLineColor(kBlue+2);
+  difference->SetFillColor(kBlue-8);
+  difference->Draw("hist");
 
-  TSpectrum *s = new TSpectrum(3);
-  int npeaks = s->Search(hist,3,"nodraw",1.0e-2);
-
-  std::cout << "Peaks found: " << npeaks << " "
-   	    << s->GetPositionX()[0] << " " << s->GetPositionY()[0] << " "
-   	    << s->GetPositionX()[1] << " " << s->GetPositionY()[1] << " "
-	    << s->GetPositionX()[2] << " " << s->GetPositionY()[2] << " " << std::endl;
-
-  std::cout << "Minimum: " << hist->GetBinContent(hist->GetMinimumBin()) << std::endl;
-  // ****************************************************************************************
-
+  std::cout << ">>>>> Area: " << difference->Integral() <<std::endl;
   
   if(nmr->bGraphicsShow){
     nmr->RunGraphicsEngine(); 
