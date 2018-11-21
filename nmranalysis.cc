@@ -31,11 +31,16 @@ int main(int argc, char *argv[])
   nmr->OpenDataFile();
   nmr->OpenConfigFile();
   nmr->ReadFiles();
+  // nmr->ReadDataFile();
     
   int event_number = nmr->GetValue<int>("EventNum", 0);
   int steps = nmr->GetValue<int>("ScanSteps", 0);
 
   float central_frequency = nmr->GetValue<double>("RFFreq", 0);
+  // int event_number = 1;
+  // int steps = 500;
+  
+  // float central_frequency = 213.0;
 
 
   TH1F *hist = new TH1F("hist", "hist", steps, central_frequency - 0.4, central_frequency + 0.4);
@@ -60,7 +65,7 @@ int main(int argc, char *argv[])
   hist->SetTitle(Form("Average Proton NMR Signal: Event# %d", event_number));
   hist->Draw("hist");
 
-  TH1F *background = (TH1F *)hist->ShowBackground(100, "same");
+  TH1F *background = (TH1F *)hist->ShowBackground(200, "same");
   TH1F *difference = (TH1F *)hist->Clone();
   difference->SetName("diff");
   difference->Add(background, -1.0);
