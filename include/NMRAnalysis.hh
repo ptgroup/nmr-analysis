@@ -61,8 +61,12 @@ public:
   bool bDataFileLoaded;
   bool bFilePrefixSet;
   bool bGraphicsShow;
+  bool bLoadNMRFile;
 
+  double kScaleFactor;
+  
   std::string fFilePrefix;
+  std::string fMapFile;
   
   std::vector <run *> entry;
   std::vector <data_type *> config_dict;
@@ -81,6 +85,7 @@ public:
   void ReadFiles();
   void GetOptions(char **);
   void ReadConfigurationMap();
+  void ReadConfigurationMap(std::string);
   void is_string(int, const char *);
   void InitGraphicsEngine(int, char** );
   void RunGraphicsEngine();

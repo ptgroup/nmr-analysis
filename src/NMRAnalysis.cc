@@ -9,6 +9,10 @@ NMRAnalysis::NMRAnalysis(){
   bConfigFileLoaded = false;
   bDataFileLoaded = false;
   bFilePrefixSet = false;
+
+  fMapFile = "config_map.cfg";
+
+  kScaleFactor = 1.0;               // Default scaling of data. This is used primarily to flip the sign.
 }
 
 NMRAnalysis::~NMRAnalysis(){
@@ -26,7 +30,39 @@ void NMRAnalysis::ReadConfigurationMap()
   
   std::fstream map_config;
 
-  map_config.open("config/config_map.cfg", std::fstream::in);
+  map_config.open(Form("config/%s", fMapFile.c_str()), std::fstream::in);
+  
+  if( !(map_config.good()) ){
+    std::cerr << __FUNCTION__ << " >> Error opening file: " << std::endl;
+    exit(1);
+  }
+
+  while(!map_config.eof()){
+    std::getline(map_config, line);
+    token = new char[line.size() + 1];
+    strcpy(token, line.c_str());
+    config_dict.push_back(new data_type);
+
+    token = strtok(token, " ,\t");
+    (config_dict.back())->setting = token;
+    token = strtok(NULL, " ,\t");
+    (config_dict.back())->value = token;
+    token = strtok(NULL, " ,\t");
+  }
+  return;
+}
+
+void NMRAnalysis::ReadConfigurationMap(std::string mapfile)
+{
+  char *token;
+  
+  std::string line;
+  std::string name;
+  std::string type;
+  
+  std::fstream map_config;
+
+  map_config.open(Form("config/%s", mapfile.c_str()), std::fstream::in);
   
   if( !(map_config.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening file: " << std::endl;
@@ -99,7 +135,6 @@ int NMRAnalysis::OpenDataFile()
   std::cout << "opening files with prefix: " << fFilePrefix << std::endl;
  
   filename = Form("data/%s-RawSignal.csv", fFilePrefix.c_str());
-  // filename = Form("data/%s.csv", fFilePrefix.c_str());
   data_file.open(filename, std::fstream::in);
   std::cout << "Opening ..... " << filename << std::endl;
   
@@ -262,6 +297,12 @@ void NMRAnalysis::GetOptions(char **options){
 		<< fFilePrefix 
 		<< std::endl;
       bFilePrefixSet = true;
+    }
+    if(flag.compare("--scale-factor") == 0){
+      std::string opt(options[i+1]);
+      kScaleFactor = atof(opt.c_str());
+      flag.clear();
+
     }
     if(flag.compare("--graphics") == 0){
       flag.clear();
