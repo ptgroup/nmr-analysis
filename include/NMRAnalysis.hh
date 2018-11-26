@@ -24,6 +24,7 @@
 
 #include <boost/any.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 // Custom libraries
 
@@ -67,13 +68,16 @@ public:
   
   std::string fFilePrefix;
   std::string fMapFile;
+  std::string fOutputFile;
   
   std::vector <run *> entry;
   std::vector <data_type *> config_dict;
   std::vector <config_data *> configuration;
   std::vector< std::string > SplitVec;
   std::vector< std::string > SplitVecData;
+  std::vector <boost::filesystem::path> file_list;
 
+  
   
   NMRAnalysis();
   ~NMRAnalysis();
@@ -85,11 +89,12 @@ public:
   void ReadFiles();
   void GetOptions(char **);
   void ReadConfigurationMap();
-  void ReadConfigurationMap(std::string);
+  void ReadConfigurationMap(const char *);
   void is_string(int, const char *);
   void InitGraphicsEngine(int, char** );
   void RunGraphicsEngine();
   void PrintData();
+  void ReadDataDirectory(const boost::filesystem::path&, const std::string);
   
   std::pair<bool, const char *> FindSetting(const char *);
   

@@ -11,13 +11,30 @@ NMRAnalysis::NMRAnalysis(){
   bFilePrefixSet = false;
 
   fMapFile = "config_map.cfg";
-
+  fOutputFile = "output.dat";
+  
   kScaleFactor = 1.0;               // Default scaling of data. This is used primarily to flip the sign.
 }
 
 NMRAnalysis::~NMRAnalysis(){
   config_file.close();
   data_file.close();
+}
+
+void NMRAnalysis::ReadDataDirectory(const boost::filesystem::path& root, const std::string ext)
+{
+
+  if(!boost::filesystem::exists(root) || !boost::filesystem::is_directory(root)) return;
+
+  boost::filesystem::recursive_directory_iterator it(root);
+  boost::filesystem::recursive_directory_iterator endit;
+
+  while(it != endit)
+    {
+      if(boost::filesystem::is_regular_file(*it) && it->path().extension() == ext) file_list.push_back(it->path().filename());
+      ++it;
+
+    }
 }
 
 void NMRAnalysis::ReadConfigurationMap()
@@ -52,7 +69,7 @@ void NMRAnalysis::ReadConfigurationMap()
   return;
 }
 
-void NMRAnalysis::ReadConfigurationMap(std::string mapfile)
+void NMRAnalysis::ReadConfigurationMap(const char *mapfile)
 {
   char *token;
   
@@ -62,7 +79,7 @@ void NMRAnalysis::ReadConfigurationMap(std::string mapfile)
   
   std::fstream map_config;
 
-  map_config.open(Form("config/%s", mapfile.c_str()), std::fstream::in);
+  map_config.open(Form("config/%s", mapfile), std::fstream::in);
   
   if( !(map_config.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening file: " << std::endl;
@@ -185,7 +202,6 @@ void NMRAnalysis::ReadDataFile(){
 }
 
 void NMRAnalysis::ReadFiles(){
-  this->ReadConfigurationMap();
 
   // Read in data file
   std::cout << "Reading data file." << std::endl;
@@ -297,6 +313,14 @@ void NMRAnalysis::GetOptions(char **options){
 		<< fFilePrefix 
 		<< std::endl;
       bFilePrefixSet = true;
+    }
+    if(flag.compare("--output-file") == 0){
+      std::string opt(options[i+1]);
+      fOutputFile = opt;
+      flag.clear();
+      std::cout << "Setting output file: \t" 
+		<< fOutputFile 
+		<< std::endl;
     }
     if(flag.compare("--scale-factor") == 0){
       std::string opt(options[i+1]);
