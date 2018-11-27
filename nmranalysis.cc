@@ -26,10 +26,13 @@ int main(int argc, char *argv[])
   nmr->GetOptions(argv);
   if(nmr->bGraphicsShow) nmr->InitGraphicsEngine(argc, argv); 
 
-  nmr->OpenDataFile();
-  nmr->OpenConfigFile();
+  std::vector <boost::filesystem::path> data_files = nmr->GetFileList("data/nmr_data/data/", ".csv");
+  std::vector <boost::filesystem::path> settings_files = nmr->GetFileList("data/nmr_data/settings/", ".csv");
+
+  nmr->OpenDataFile(data_files.at(0).string().c_str());
+  nmr->OpenSettingsFile(settings_files.at(0).string().c_str());
   nmr->ReadConfigurationMap("config_map.cfg");
-  nmr->ReadFiles();
+  nmr->ReadNMRFiles();
     
   int event_number;
   int steps;
@@ -44,11 +47,12 @@ int main(int argc, char *argv[])
   gStyle->SetOptStat(0);
   
   std::fstream out_file;
-  out_file.open(Form("output/%s.dat", (nmr->fOutputFile.c_str())), std::fstream::in | std::fstream::app | std::fstream::out);
+  out_file.open(Form("output/%s", (nmr->fOutputFile.c_str())), std::fstream::in | std::fstream::app | std::fstream::out);
   if( !(out_file.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening output file: " << std::endl;
     exit(1);
   }
+
   for(unsigned int i = 0; i < (unsigned int)(nmr->entry.size()); i++)
     {
       event_number = nmr->GetValue<int>("EventNum", i);

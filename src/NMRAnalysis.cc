@@ -1,5 +1,3 @@
-
-
 #ifndef nmr_analysis_cc
 #define nmr_analysis_cc
 
@@ -21,10 +19,15 @@ NMRAnalysis::~NMRAnalysis(){
   data_file.close();
 }
 
-void NMRAnalysis::ReadDataDirectory(const boost::filesystem::path& root, const std::string ext)
+std::vector<boost::filesystem::path> NMRAnalysis::GetFileList(const boost::filesystem::path& root, const std::string ext)
 {
 
-  if(!boost::filesystem::exists(root) || !boost::filesystem::is_directory(root)) return;
+  std::vector <boost::filesystem::path> file_list;
+  
+  if(!boost::filesystem::exists(root) || !boost::filesystem::is_directory(root)){
+    std::cerr << "Filesystems failed. " << std::endl;
+    exit(1);
+  }
 
   boost::filesystem::recursive_directory_iterator it(root);
   boost::filesystem::recursive_directory_iterator endit;
@@ -35,6 +38,7 @@ void NMRAnalysis::ReadDataDirectory(const boost::filesystem::path& root, const s
       ++it;
 
     }
+  return file_list;
 }
 
 void NMRAnalysis::ReadConfigurationMap()
@@ -111,7 +115,7 @@ std::pair<bool, const char *> NMRAnalysis::FindSetting(const char *param){
   return std::pair<bool, const char *>(false, "Failure");  
 }
 
-int NMRAnalysis::OpenConfigFile()
+int NMRAnalysis::OpenSettingsFile()
 {
   std::string filename;
 
@@ -135,7 +139,28 @@ int NMRAnalysis::OpenConfigFile()
   else
     bConfigFileLoaded = true;
 
-  std::cout << "Finished opening config file." << std::endl;
+  std::cout << "Finished opening settings file." << std::endl;
+  
+  return(0);
+}
+
+int NMRAnalysis::OpenSettingsFile(const char *filename)
+{
+  bFilePrefixSet = true;
+
+  std::cout << "opening settings file: " << filename << std::endl;
+  
+  config_file.open(Form("data/nmr_data/settings/%s", filename), std::fstream::in);
+ 
+  if( !(config_file.good()) ){
+    std::cerr << __FUNCTION__ << " >> Error opening settings file." << std::endl;
+    bConfigFileLoaded = false;
+    exit(1);
+  }
+  else
+    bConfigFileLoaded = true;
+
+  std::cout << "Finished opening settings file." << std::endl;
   
   return(0);
 }
@@ -168,6 +193,26 @@ int NMRAnalysis::OpenDataFile()
   return(0);
 }
 
+int NMRAnalysis::OpenDataFile(const char *filename)
+{
+  bFilePrefixSet = true;
+  
+  std::cout << "opening data file: " << filename << std::endl;
+  data_file.open(Form("data/nmr_data/data/%s", filename), std::fstream::in);
+  
+  if( !(data_file.good()) ){
+    std::cerr << __FUNCTION__ << " >> Error opening data file: " << std::endl;
+    bDataFileLoaded = false;
+    exit(1);
+  }
+  else
+    bDataFileLoaded = true;
+
+  std::cout << "Finished opening data file." << std::endl;
+  
+  return(0);
+}
+
 void NMRAnalysis::PrintData()
 {
   for(unsigned int i = 0; i < entry.size(); i++){
@@ -180,7 +225,8 @@ void NMRAnalysis::PrintData()
 
 void NMRAnalysis::ReadDataFile(){
   this->ReadConfigurationMap();
-
+  entry.clear();
+  
   // Read in data file
   std::cout << "Reading data file." << std::endl;
   std::string line;
@@ -201,8 +247,11 @@ void NMRAnalysis::ReadDataFile(){
   return;
 }
 
-void NMRAnalysis::ReadFiles(){
+void NMRAnalysis::ReadNMRFiles(){
 
+  entry.clear();
+  configuration.clear();
+  
   // Read in data file
   std::cout << "Reading data file." << std::endl;
   std::string line;

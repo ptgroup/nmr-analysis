@@ -73,20 +73,19 @@ public:
   std::vector <run *> entry;
   std::vector <data_type *> config_dict;
   std::vector <config_data *> configuration;
-  std::vector< std::string > SplitVec;
-  std::vector< std::string > SplitVecData;
-  std::vector <boost::filesystem::path> file_list;
-
-  
+  std::vector <std::string> SplitVec;
+  std::vector <std::string> SplitVecData;
   
   NMRAnalysis();
   ~NMRAnalysis();
   
-  int OpenConfigFile();
+  int OpenSettingsFile();
+  int OpenSettingsFile(const char *);
   int OpenDataFile();
+  int OpenDataFile(const char *);
   
   void ReadDataFile();
-  void ReadFiles();
+  void ReadNMRFiles();
   void GetOptions(char **);
   void ReadConfigurationMap();
   void ReadConfigurationMap(const char *);
@@ -94,7 +93,8 @@ public:
   void InitGraphicsEngine(int, char** );
   void RunGraphicsEngine();
   void PrintData();
-  void ReadDataDirectory(const boost::filesystem::path&, const std::string);
+
+  std::vector <boost::filesystem::path> GetFileList(const boost::filesystem::path&, const std::string);
   
   std::pair<bool, const char *> FindSetting(const char *);
   
