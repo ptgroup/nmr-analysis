@@ -63,8 +63,16 @@ public:
   bool bFilePrefixSet;
   bool bGraphicsShow;
   bool bLoadNMRFile;
-
+  bool bExternNMRAverageSet;
+  bool bExternLANLAverageSet;
+  bool bWriteOutputFile;
+  
   double kScaleFactor;
+  double kDataSet;
+  double kExternLANLAverage;
+  double kExternNMRAverage;
+  double kExternLANLError;
+  double kExternNMRError;
   
   std::string fFilePrefix;
   std::string fMapFile;
@@ -93,7 +101,9 @@ public:
   void InitGraphicsEngine(int, char** );
   void RunGraphicsEngine();
   void PrintData();
-
+  void Clear();
+  void Sort(std::vector <boost::filesystem::path> &, std::vector <boost::filesystem::path> &);
+  
   std::vector <boost::filesystem::path> GetFileList(const boost::filesystem::path&, const std::string);
   
   std::pair<bool, const char *> FindSetting(const char *);
@@ -119,12 +129,11 @@ template <typename T> std::vector<T> NMRAnalysis::Get(const char *key){
     
 template <typename T> T NMRAnalysis::GetValue(const char *key, int index){
   for(std::vector <config_data *>::iterator it = configuration.begin(); it != configuration.end(); ++it){
-   
     if(strcmp((*it)->setting, key) == 0){
       return boost::any_cast<T>((*it)->values.at(index));
     }
   }
-  std::cout << __FUNCTION__ << ":: Failed to find value at index:: " << key << ":" << index << " Exiting." << std::endl;
+  std::cout << __FUNCTION__ << ":: Failed to find value at index:: " << key << ": " << index << ". Exiting." << std::endl;
   exit(1);
 }
 #endif

@@ -7,7 +7,10 @@ NMRAnalysis::NMRAnalysis(){
   bConfigFileLoaded = false;
   bDataFileLoaded = false;
   bFilePrefixSet = false;
-
+  bExternLANLAverageSet = false;
+  bExternNMRAverageSet = false;
+  bWriteOutputFile = false;
+  
   fMapFile = "config_map.cfg";
   fOutputFile = "output.dat";
   
@@ -41,6 +44,42 @@ std::vector<boost::filesystem::path> NMRAnalysis::GetFileList(const boost::files
   return file_list;
 }
 
+void NMRAnalysis::Sort(std::vector <boost::filesystem::path> &settings, std::vector <boost::filesystem::path> &data)
+{
+  boost::filesystem::path temp;
+
+  std::string substr;
+  std::size_t npos;
+
+  unsigned int i = 0;
+  unsigned int j = 0;
+  
+  for(std::vector <boost::filesystem::path>::iterator it = settings.begin(); it != settings.end(); it++){
+    npos = (*it).string().find(".csv");
+    substr = (*it).string().substr(0, npos);
+    i = std::distance(settings.begin(), it);
+    
+    for(std::vector <boost::filesystem::path>::iterator jt = data.begin(); jt != data.end(); jt++){
+      j = std::distance(data.begin(), jt);
+      if((*jt).string().compare(0, npos, substr) == 0){
+	temp = data.at(i);
+	data.at(i) = (*jt);
+	data.at(j) = temp;
+      }
+    }
+  }
+}
+
+void NMRAnalysis::Clear()
+{
+
+  entry.clear();
+  config_dict.clear();
+  configuration.clear();
+  SplitVec.clear();
+  SplitVecData.clear();
+}
+
 void NMRAnalysis::ReadConfigurationMap()
 {
   char *token;
@@ -70,6 +109,7 @@ void NMRAnalysis::ReadConfigurationMap()
     (config_dict.back())->value = token;
     token = strtok(NULL, " ,\t");
   }
+  
   return;
 }
 
@@ -102,6 +142,8 @@ void NMRAnalysis::ReadConfigurationMap(const char *mapfile)
     (config_dict.back())->value = token;
     token = strtok(NULL, " ,\t");
   }
+  map_config.close();
+  
   return;
 }
 
@@ -150,7 +192,7 @@ int NMRAnalysis::OpenSettingsFile(const char *filename)
 
   std::cout << "opening settings file: " << filename << std::endl;
   
-  config_file.open(Form("data/nmr_data/settings/%s", filename), std::fstream::in);
+  config_file.open(Form("%s", filename), std::fstream::in);
  
   if( !(config_file.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening settings file." << std::endl;
@@ -198,7 +240,7 @@ int NMRAnalysis::OpenDataFile(const char *filename)
   bFilePrefixSet = true;
   
   std::cout << "opening data file: " << filename << std::endl;
-  data_file.open(Form("data/nmr_data/data/%s", filename), std::fstream::in);
+  data_file.open(Form("%s", filename), std::fstream::in);
   
   if( !(data_file.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening data file: " << std::endl;
@@ -244,6 +286,8 @@ void NMRAnalysis::ReadDataFile(){
       entry.back()->data.push_back(atof((*it).c_str()));
     }
   }
+  data_file.close();
+  
   return;
 }
 
@@ -269,6 +313,8 @@ void NMRAnalysis::ReadNMRFiles(){
       entry.back()->data.push_back(atof((*it).c_str()));
     }
   }
+
+  data_file.close();
   
   // Read in configuration file
 
@@ -282,7 +328,7 @@ void NMRAnalysis::ReadNMRFiles(){
   while(!config_file.eof()){
     std::getline(config_file, line);
     if((unsigned)strlen(line.c_str()) == 0) continue;
-    
+
     SplitVecData.clear();
     
     if(bFirstLineRead)
@@ -325,6 +371,8 @@ void NMRAnalysis::ReadNMRFiles(){
 	iter = 0;
     }
   }
+  config_file.close();
+  
   return;
 }
 
@@ -370,12 +418,40 @@ void NMRAnalysis::GetOptions(char **options){
       std::cout << "Setting output file: \t" 
 		<< fOutputFile 
 		<< std::endl;
+      bWriteOutputFile = true;
     }
     if(flag.compare("--scale-factor") == 0){
       std::string opt(options[i+1]);
       kScaleFactor = atof(opt.c_str());
       flag.clear();
 
+    }
+    if(flag.compare("--set-lanl-average") == 0){
+      std::string opt(options[i+1]);
+      std::vector <std::string> splitvec;
+
+      boost::split(splitvec, opt, boost::is_any_of(":"));
+		   
+      kExternLANLAverage = atof(splitvec.front().c_str());
+      kExternLANLError = atof(splitvec.back().c_str());
+      bExternLANLAverageSet = true;
+      flag.clear();
+    }
+    if(flag.compare("--set-nmr-average") == 0){
+      std::string opt(options[i+1]);
+      std::vector <std::string> splitvec;
+
+      boost::split(splitvec, opt, boost::is_any_of(":"));
+      
+      kExternNMRAverage = atof(splitvec.front().c_str());
+      kExternNMRError = atof(splitvec.back().c_str());
+      bExternNMRAverageSet = true;
+      flag.clear();
+    }
+    if(flag.compare("--data-set") == 0){
+      std::string opt(options[i+1]);
+      kDataSet = atof(opt.c_str());
+      flag.clear();
     }
     if(flag.compare("--graphics") == 0){
       flag.clear();
