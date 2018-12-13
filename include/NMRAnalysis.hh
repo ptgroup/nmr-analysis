@@ -19,6 +19,8 @@
 
 #include "TString.h"
 #include "TApplication.h"
+#include "TCanvas.h"
+#include "TGraph.h"
 
 // BOOST c++ libraries
 
@@ -35,8 +37,8 @@ private:
   struct run {
     int event;
 
-    std::vector <float> data;          // Amplitude of the NMR signal at a given frequncy
-    std::vector <float> frequency;     // Frequencies making up the total frequency range
+    std::vector <double> data;          // Amplitude of the NMR signal at a given frequncy
+    std::vector <double> frequency;     // Frequencies making up the total frequency range
     
   };
 
@@ -52,14 +54,18 @@ private:
   };
 
   TApplication *app;
+
+  std::vector <double> momentum;
   
 public:
 
   std::fstream config_file;
   std::fstream data_file;
+  std::fstream background_file;
 
   bool bConfigFileLoaded;
   bool bDataFileLoaded;
+  bool bBackgroundFileLoaded;
   bool bFilePrefixSet;
   bool bGraphicsShow;
   bool bLoadNMRFile;
@@ -79,6 +85,7 @@ public:
   std::string fOutputFile;
   
   std::vector <run *> entry;
+  std::vector <run *> background;
   std::vector <data_type *> config_dict;
   std::vector <config_data *> configuration;
   std::vector <std::string> SplitVec;
@@ -91,8 +98,10 @@ public:
   int OpenSettingsFile(const char *);
   int OpenDataFile();
   int OpenDataFile(const char *);
+  int OpenBackgroundFile(const char *);
   
   void ReadDataFile();
+  void ReadBackgroundFile();
   void ReadNMRFiles();
   void GetOptions(char **);
   void ReadConfigurationMap();
@@ -103,10 +112,18 @@ public:
   void PrintData();
   void Clear();
   void Sort(std::vector <boost::filesystem::path> &, std::vector <boost::filesystem::path> &);
+
+  double PolynomialRegression(std::vector <double>, std::vector <double>);
+
+  
+  TGraph *ComputeBackgroundSignal(std::vector <double>, std::vector <double>, double, double, double, double);
+  
+  std::vector <double> ComputeSignalAverage(std::vector <run *> );
   
   std::vector <boost::filesystem::path> GetFileList(const boost::filesystem::path&, const std::string);
   
   std::pair<bool, const char *> FindSetting(const char *);
+  std::vector <double> GradientDescent(std::vector <double>, std::vector <double>, std::vector <double>, double);
   
   template <typename T> T GetValue(const char *, int);
   template <typename T> std::vector<T> Get(const char *);

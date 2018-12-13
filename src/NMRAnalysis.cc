@@ -55,7 +55,7 @@ void NMRAnalysis::Sort(std::vector <boost::filesystem::path> &settings, std::vec
   unsigned int j = 0;
   
   for(std::vector <boost::filesystem::path>::iterator it = settings.begin(); it != settings.end(); it++){
-    npos = (*it).string().find(".csv");
+   npos = (*it).string().find(".csv");
     substr = (*it).string().substr(0, npos);
     i = std::distance(settings.begin(), it);
     
@@ -111,6 +111,112 @@ void NMRAnalysis::ReadConfigurationMap()
   }
   
   return;
+}
+
+std::vector <double> NMRAnalysis::ComputeSignalAverage(std::vector<run *> signal)
+{
+  int i = 0;
+  int j = 0;
+  
+  std::vector <double> average;
+
+  average.resize(signal.front()->data.size());
+  
+  for(std::vector <run *>::iterator it = signal.begin(); it != signal.end(); it++){
+    i = std::distance(signal.begin(), it);
+    for(std::vector <double>::iterator jt = signal.at(i)->data.begin(); jt != signal.at(i)->data.end(); jt++){
+      j = std::distance(signal.at(i)->data.begin(), jt);
+      average.at(j) += *jt;
+    }
+  }
+
+  for(std::vector <double>::iterator it = average.begin(); it != average.end(); it++){
+    i = std::distance(average.begin(), it);
+    average.at(i) /= signal.size();
+  }
+
+  return average;
+}
+
+TGraph *NMRAnalysis::ComputeBackgroundSignal(std::vector <double> signal, std::vector <double> frequency, double x0, double x1, double x2, double x3){
+  std::vector <double> y;
+  std::vector <double> x;
+  
+  // *****************************************************************************
+  //
+  // Create a vector containing only the the parts of the signal you want to fit
+  //
+  // *****************************************************************************
+  
+  for(int i = x0; i < x1; i++){
+    y.push_back(signal.at(i));
+    x.push_back(frequency.at(i));
+  }
+  for(int i = x2; i < x3; i++){
+    y.push_back(signal.at(i));
+    x.push_back(frequency.at(i));
+  }
+
+  TCanvas *c = new TCanvas("c", "c", 5);
+  c->cd();
+  
+  TGraph *background = new TGraph(x.size(), x.data(), y.data());
+  background->Draw("ap");
+  c->SaveAs("background.C");
+
+  return background;
+  
+}
+
+std::vector <double> NMRAnalysis::GradientDescent(std::vector <double> x, std::vector <double> y, std::vector <double> _coeff, double gamma)
+{
+  int j = 0;
+  
+  const double N = y.size();
+  
+  std::vector <double> coeff(3);
+  std::vector <double> gradient(3);
+
+  for(int i = 0; i < 3; i++){
+    for(std::vector <double>::iterator it = y.begin(); it != y.end(); it++){
+      j = std::distance(y.begin(), it);
+      gradient.at(i) += (-2/N)*std::pow(x.at(j),i)*(y.at(j)
+						    - _coeff.at(0)*std::pow(x.at(j), 0)
+						    - _coeff.at(1)*std::pow(x.at(j), 1)
+						    - _coeff.at(2)*std::pow(x.at(j), 2));
+    }
+    coeff.at(i) = _coeff.at(i) - gamma*gradient.at(i) - 0.9*gamma*momentum.at(i);
+    momentum.at(i) = coeff.at(i);
+  }
+
+  return coeff;
+}
+
+double NMRAnalysis::PolynomialRegression(std::vector <double> x, std::vector <double> y)
+{
+  int count = 0;
+  
+  double gamma;
+  double training = 10;
+
+  momentum.resize(3);
+  momentum.assign(3, 0);
+  
+  std::vector <double> gd;
+  gd.assign(3, 0);
+  
+  for(int i = 0; i < 1e8; i++){ 
+    gamma = 0.002/(1 + i/training);
+    gd = this->GradientDescent(x, y, gd, gamma);
+    if((i % (int)1e5) == 0){
+      std::cout << "<<<<< Parameters: " << i << " "
+		<< gd.at(0) << " "
+		<< gd.at(1) << " "
+		<< gd.at(2) << std::endl;
+    }
+  }
+  
+  return 0;
 }
 
 void NMRAnalysis::ReadConfigurationMap(const char *mapfile)
@@ -255,6 +361,26 @@ int NMRAnalysis::OpenDataFile(const char *filename)
   return(0);
 }
 
+int NMRAnalysis::OpenBackgroundFile(const char *filename)
+{
+  bFilePrefixSet = true;
+  
+  std::cout << "opening background file: " << filename << std::endl;
+  background_file.open(Form("%s", filename), std::fstream::in);
+  
+  if( !(background_file.good()) ){
+    std::cerr << __FUNCTION__ << " >> Error opening background file: " << std::endl;
+    bBackgroundFileLoaded = false;
+    exit(1);
+  }
+  else
+    bBackgroundFileLoaded = true;
+
+  std::cout << "Finished opening background file." << std::endl;
+  
+  return(0);
+}
+
 void NMRAnalysis::PrintData()
 {
   for(unsigned int i = 0; i < entry.size(); i++){
@@ -311,6 +437,7 @@ void NMRAnalysis::ReadNMRFiles(){
     
     for(std::vector<std::string>::iterator it = SplitVec.begin()+1; it != SplitVec.end(); ++it){
       entry.back()->data.push_back(atof((*it).c_str()));
+      // std::cout << "data >>> " << entry.back()->data.back() << std::endl; 
     }
   }
 
@@ -372,6 +499,32 @@ void NMRAnalysis::ReadNMRFiles(){
     }
   }
   config_file.close();
+  
+  return;
+}
+
+void NMRAnalysis::ReadBackgroundFile(){
+  background.clear();
+    
+  // Read in background file
+  std::cout << "Reading background file." << std::endl;
+  std::string line;
+
+  while(!background_file.eof()){
+    std::getline(background_file, line);
+    if((unsigned)strlen(line.c_str()) == 0) continue;
+
+    SplitVec.clear();    
+    boost::split(SplitVec, line, boost::is_any_of(","));
+
+    background.push_back(new run);
+    background.back()->event = atoi(SplitVec.front().c_str());
+    
+    for(std::vector<std::string>::iterator it = SplitVec.begin()+1; it != SplitVec.end(); ++it){
+      background.back()->data.push_back(atof((*it).c_str()));
+    }
+  }
+  background_file.close();
   
   return;
 }

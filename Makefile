@@ -17,5 +17,9 @@ all: nmranalysis
 	${CC} ${CFLAGS} -c -o $@ $< 
 nmranalysis : nmranalysis.o ${SRC}/NMRAnalysis.o 
 	${CC} ${INCLUDES} -o $@  ${CFLAGS} $^ ${ROOTLIBS} ${ROOTGLIBS} ${LIB}
+gainanalysis : gainanalysis.o ${SRC}/NMRAnalysis.o 
+	${CC} ${INCLUDES} -o $@  ${CFLAGS} $^ ${ROOTLIBS} ${ROOTGLIBS} ${LIB}
+companalysis : companalysis.o ${SRC}/NMRAnalysis.o 
+	${CC} ${INCLUDES} -o $@  ${CFLAGS} $^ ${ROOTLIBS} ${ROOTGLIBS} ${LIB}
 clean:
 	rm -f *.o *~ src/*.o src/*~ include/*~

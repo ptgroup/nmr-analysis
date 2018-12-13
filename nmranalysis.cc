@@ -8,6 +8,8 @@
 #include "NMRAnalysis.hh"
 
 // Root libraries
+#include "TGraph.h"
+#include "TMultiGraph.h"
 #include "TGraphErrors.h"
 #include "TCanvas.h"
 #include "TApplication.h"
@@ -40,24 +42,16 @@ int main(int argc, char *argv[])
 
   nmr->Sort(settings_files, data_files);   
   
-  int event_number;
-  int steps;
-  int count;
-  int total_events = 0;
+  int event_number = 0;
+  int steps = 500;
   
   float modulation;
   float central_frequency;
   
-  double average = 0;
-  double std_dev = 0;
+  std::vector <double> average;
+
     
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
-
-  std::vector <double> samples;
-  
-  TH1F *background;
-  TH1F *difference;
-  TH1F *hist;
 
   std::fstream nmr_file;
 
@@ -73,51 +67,75 @@ int main(int argc, char *argv[])
     nmr->OpenSettingsFile((std::string("data/nmr_data/settings/") + settings_files.at(file).string()).c_str());
     nmr->ReadConfigurationMap("config_map.cfg");
     nmr->ReadNMRFiles();
-
-    canvas->Divide(1,2);
-    canvas->cd(1);
+    
+    // canvas->Divide(1,2);
+    // canvas->cd(1);
+ 
     
     gStyle->SetOptStat(0);
-    
-    for(unsigned int i = 0; i < (unsigned int)(nmr->entry.size()); i++)
+
+    // for(unsigned int i = 0; i < (unsigned int)(nmr->entry.size()); i++)
+      for(unsigned int i = 0; i < 1; i++)
       {
 	event_number = nmr->GetValue<int>("EventNum", 0);
 	steps = nmr->GetValue<int>("ScanSteps", 0);
 	modulation = (1e-3)*(nmr->GetValue<double>("RFMod", 0));          // The units from the configuration file are in MHz
 	central_frequency = nmr->GetValue<double>("RFFreq", 0);
 
-	hist = new TH1F("hist", "hist", steps, central_frequency - modulation, central_frequency + modulation);
-	
 	for(unsigned int j = 0; j < (unsigned int)(nmr->entry.at(i)->data.size()); j++){
-	  nmr->entry.at(i)->frequency.push_back( (central_frequency - modulation) + j*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
-	  hist->Fill(nmr->entry.at(i)->frequency.back(), -(nmr->kScaleFactor)*(nmr->entry.at(i)->data[j]));
+	  nmr->entry.at(i)->frequency.push_back( (central_frequency - modulation) + (j+1)*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
 	}
-	hist->Smooth(1);
-	hist->SetLineWidth(2);
-	hist->SetTitle(Form("Average Proton NMR Signal: Event# %d", event_number));
-	hist->Draw("hist");
+
+	canvas->cd();	
+	TGraph *pdp  = new TGraph(steps, nmr->entry.at(i)->frequency.data(), nmr->entry.at(i)->data.data());
+	pdp->SetMarkerStyle(kFullDotMedium);
+	pdp->SetMarkerColor(kBlue+2);
+	pdp->Draw("ac");
+
+	canvas->SaveAs(Form("histogram%d.C", i));
+	canvas->Clear();
 	
-	background = (TH1F *)hist->ShowBackground(200, "same");
-	difference = (TH1F *)hist->Clone();
-	difference->SetName("diff");
-	difference->Add(background, -1.0);
-	
-	canvas->cd(2);
-	difference->SetLineColor(kBlue+2);
-	difference->SetFillColor(kBlue-8);
-	difference->Draw("hist");
-	
-	average += difference->Integral();
-	samples.push_back(difference->Integral());
-	
-	delete hist;
-	delete background;
-	delete difference;
+	delete pdp;
       }
-  
-    total_events += nmr->entry.size();    
-    nmr->Clear();
   }
+  average = nmr->ComputeSignalAverage(nmr->entry);
+  TGraph *bck = nmr->ComputeBackgroundSignal(nmr->entry.at(0)->data,
+					     nmr->entry.at(0)->frequency,
+					     0.0, 100.0, 400.0, 500.0);
+  bck->SetMarkerColor(kRed);
+  bck->SetMarkerStyle(kFullDotMedium);
+
+  // ************************************************
+
+  std::vector <double> x;
+  std::vector <double> y;
+  
+  for(int i = -10; i < 11; i++){
+    x.push_back(i);
+    y.push_back(200.0 + 2.0*x.back() + 2.0*std::pow(x.back(), 2) );
+
+    std::cout << ">>>> " << y.back() << " " << x.back() << std::endl;
+  }
+
+  nmr->PolynomialRegression(x, y);
+
+  
+
+  // ************************************************
+  
+  TMultiGraph *mgraph = new TMultiGraph();
+  TGraph *avg  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), nmr->entry.at(0)->data.data());
+  avg->SetMarkerStyle(kFullDotMedium);
+  avg->SetMarkerColor(kBlue+2);
+
+  canvas->cd();
+  mgraph->Add(avg);
+  mgraph->Add(bck);
+  mgraph->Draw("ap");
+  canvas->SaveAs("comp.C");
+  
+  exit(1);
+  /*  
   average /= total_events;
   
   if(nmr->bExternNMRAverageSet)
@@ -183,26 +201,29 @@ int main(int argc, char *argv[])
     lanl->ReadConfigurationMap("lanl_map.cfg");
     lanl->ReadNMRFiles();
     
-    for(unsigned int i = 0; i < (unsigned int)(lanl->entry.size()); i++)
+    // for(unsigned int i = 0; i < (unsigned int)(lanl->entry.size()); i++)
+    for(unsigned int i = 0; i < 1; i++)
       {
 	event_number = lanl->GetValue<int>("sweep_number", i);
 	steps = lanl->GetValue<int>("sweeps", 0);
 	central_frequency = lanl->GetValue<double>("central_frequency", 0);
 	modulation = 0.5*steps*(lanl->GetValue<double>("step_size", 0));          
 	
-	TH1F *hist = new TH1F("hist", "hist", steps, central_frequency - modulation, central_frequency + modulation);
+	TH1D *hist = new TH1D("hist", "hist", steps, central_frequency - modulation, central_frequency + modulation);
 	
 	for(unsigned int j = 0; j < (unsigned int)(lanl->entry.at(i)->data.size()); j++){
 	  lanl->entry.at(i)->frequency.push_back( (central_frequency - modulation) + j*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
-	  hist->Fill(lanl->entry.at(i)->frequency.back(), (lanl->kScaleFactor)*(lanl->entry.at(i)->data[j]));
+	  hist->Fill(lanl->entry.at(i)->frequency.back(), (lanl->kScaleFactor)*(lanl->entry.at(i)->data[j])/0.0579478);
 	}
 	hist->Smooth(1);
 	hist->SetLineWidth(2);
 	hist->SetTitle(Form("Average Proton NMR Signal: Event# %d", event_number));
 	hist->Draw("hist");
+
+	hist->GetXaxis()->SetRange(20,500);
 	
-	TH1F *background = (TH1F *)hist->ShowBackground(200, "same");
-	TH1F *difference = (TH1F *)hist->Clone();
+	TH1D *background = (TH1D *)hist->ShowBackground(200, "same");
+	TH1D *difference = (TH1D *)hist->Clone();
 	difference->SetName("diff");
 	difference->Add(background, -1.0);
 	
@@ -210,6 +231,18 @@ int main(int argc, char *argv[])
 	difference->SetLineColor(kBlue+2);
 	difference->SetFillColor(kBlue-8);
 	difference->Draw("hist");
+
+	lal = new TH1D("lanl", "lanl", steps, central_frequency - modulation, central_frequency + modulation);
+	lal = (TH1D *)difference->Clone();
+	
+	spectrum->Search(difference, 2, "goff", 0.01);
+	
+	std::cout << "Peaks found LANL: " << spectrum->GetNPeaks() << std::endl;
+	for(int j = 0; j < 4; j++){
+	  std::cout <<  spectrum->GetPositionX()[j] << " " << spectrum->GetPositionY()[j] << std::endl;
+	}
+
+	canvas->SaveAs(Form("histogram_lanl%d.C", i));
 	
 	average += difference->Integral();
 	
@@ -248,11 +281,23 @@ int main(int argc, char *argv[])
       count++;
     }
   }
+
+  canvas->Divide(1,1);
+  canvas->cd();
+
+  pdp->Draw("hist");
+  pdp->SetLineColor(kBlue+2);
+  pdp->SetFillColor(kBlue-8);
+
+  lal->Draw("hist same");
+  pdp->SetLineColor(kRed+2);
+  pdp->SetFillColor(kRed-8);
   
-  
+  canvas->SaveAs("comp.C");
+      
   average = 0;
   std_dev = 0;
   samples.clear();
-  
+  */  
   return(0);
 }
