@@ -21,6 +21,8 @@
 #include "TApplication.h"
 #include "TCanvas.h"
 #include "TGraph.h"
+#include "TMultiGraph.h"
+#include "TMatrixD.h"
 
 // BOOST c++ libraries
 
@@ -90,6 +92,7 @@ public:
   std::vector <config_data *> configuration;
   std::vector <std::string> SplitVec;
   std::vector <std::string> SplitVecData;
+  std::vector <double> param;
   
   NMRAnalysis();
   ~NMRAnalysis();
@@ -112,11 +115,12 @@ public:
   void PrintData();
   void Clear();
   void Sort(std::vector <boost::filesystem::path> &, std::vector <boost::filesystem::path> &);
-
-  double PolynomialRegression(std::vector <double>, std::vector <double>);
+  void ScaleData(double);
+  
+  std::vector <double> PolynomialRegression(std::vector <double>, std::vector <double>);
 
   
-  TGraph *ComputeBackgroundSignal(std::vector <double>, std::vector <double>, double, double, double, double);
+  std::vector <double> ComputeBackgroundSignal(std::vector <double>, std::vector <double>, double, double, double, double);
   
   std::vector <double> ComputeSignalAverage(std::vector <run *> );
   

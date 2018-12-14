@@ -48,7 +48,8 @@ int main(int argc, char *argv[])
   float modulation;
   float central_frequency;
   
-  std::vector <double> average;
+  std::vector <double> pdp_average;
+  std::vector <double> lanl_average;
 
     
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
@@ -67,9 +68,6 @@ int main(int argc, char *argv[])
     nmr->OpenSettingsFile((std::string("data/nmr_data/settings/") + settings_files.at(file).string()).c_str());
     nmr->ReadConfigurationMap("config_map.cfg");
     nmr->ReadNMRFiles();
-    
-    // canvas->Divide(1,2);
-    // canvas->cd(1);
  
     
     gStyle->SetOptStat(0);
@@ -84,91 +82,89 @@ int main(int argc, char *argv[])
 
 	for(unsigned int j = 0; j < (unsigned int)(nmr->entry.at(i)->data.size()); j++){
 	  nmr->entry.at(i)->frequency.push_back( (central_frequency - modulation) + (j+1)*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
+	  nmr->entry.at(i)->data.at(j) *= -1.0;
 	}
 
-	canvas->cd();	
+	canvas->cd();
+	
 	TGraph *pdp  = new TGraph(steps, nmr->entry.at(i)->frequency.data(), nmr->entry.at(i)->data.data());
 	pdp->SetMarkerStyle(kFullDotMedium);
 	pdp->SetMarkerColor(kBlue+2);
 	pdp->Draw("ac");
 
-	canvas->SaveAs(Form("histogram%d.C", i));
+	canvas->SaveAs(Form("pdp_histogram%d.C", i));
 	canvas->Clear();
 	
 	delete pdp;
       }
   }
-  average = nmr->ComputeSignalAverage(nmr->entry);
-  TGraph *bck = nmr->ComputeBackgroundSignal(nmr->entry.at(0)->data,
-					     nmr->entry.at(0)->frequency,
-					     0.0, 100.0, 400.0, 500.0);
-  bck->SetMarkerColor(kRed);
-  bck->SetMarkerStyle(kFullDotMedium);
 
-  // ************************************************
-
-  std::vector <double> x;
-  std::vector <double> y;
+  pdp_average = nmr->ComputeSignalAverage(nmr->entry);
+  std::vector <double> fit = nmr->ComputeBackgroundSignal(nmr->entry.at(0)->data,
+    							  nmr->entry.at(0)->frequency,
+    							  0.0, 100.0, 400.0, 500.0);
   
-  for(int i = -10; i < 11; i++){
-    x.push_back(i);
-    y.push_back(200.0 + 2.0*x.back() + 2.0*std::pow(x.back(), 2) );
-
-    std::cout << ">>>> " << y.back() << " " << x.back() << std::endl;
-  }
-
-  nmr->PolynomialRegression(x, y);
-
+  // std::vector <double> subtracted;
   
+  // // fit->SetMarkerColor(kRed);
+  // // fit->SetMarkerStyle(kFullDotMedium);
+  // int index = 0;
+  // for(std::vector <double>::iterator it = fit.begin(); it != fit.end(); it++){
+  //   index = std::distance(fit.begin(), it);
+  //   subtracted.push_back(nmr->entry.at(0)->data.at(index) - (*it));
+  // }
 
-  // ************************************************
-  
   TMultiGraph *mgraph = new TMultiGraph();
-  TGraph *avg  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), nmr->entry.at(0)->data.data());
-  avg->SetMarkerStyle(kFullDotMedium);
-  avg->SetMarkerColor(kBlue+2);
+  TGraph *pdp_avg  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), pdp_average.data());
+  pdp_avg->SetMarkerStyle(kFullDotMedium);
+  pdp_avg->SetMarkerColor(kBlue+2);
 
-  canvas->cd();
-  mgraph->Add(avg);
-  mgraph->Add(bck);
-  mgraph->Draw("ap");
-  canvas->SaveAs("comp.C");
-  
-  exit(1);
-  /*  
-  average /= total_events;
-  
-  if(nmr->bExternNMRAverageSet)
-    average = nmr->kExternNMRAverage;
-  
-  // Write the data to an output file
-  
-  for(std::vector<double>::iterator it = samples.begin(); it != samples.end(); it++) std_dev += std::pow(*it - average, 2);
+  // TGraph *comp  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), subtracted.data());
+  // comp->SetMarkerStyle(kFullDotMedium);
+  // comp->SetMarkerColor(kBlue+2);
 
-  std_dev /= std::pow(total_events,2);
-  std_dev = std::sqrt(std_dev);
-  
-  if(nmr->bExternNMRAverageSet)
-    std_dev = nmr->kExternNMRError;
-  
-  std::cout << "PDP Average: " << average << " "
-	    << std_dev << std::endl;
-  
-  count = 0;
-  if(nmr->bWriteOutputFile){    
-    for(std::vector<double>::iterator it = samples.begin(); it != samples.end(); it++){
-      nmr_file << (nmr->kDataSet) + 0.001*count  << "\t"
-	       << *it/average << "\t"
-	       << (*it/average)*std::sqrt( std::pow(std_dev/average, 2)) << std::endl;
-      count++;
-    }
-  }
+  // canvas->cd();
+  // comp->Draw("ap");
+  // // mgraph->Add(avg);
+  // // mgraph->Add(bck);
+  // // mgraph->Draw("ap");
+  // canvas->SaveAs("comp.C");
+  // exit(1);
 
-  count = 0;
-  average = 0;
-  std_dev = 0;
-  total_events = 0;
-  samples.clear();
+ 
+  // average /= total_events;
+  
+  // if(nmr->bExternNMRAverageSet)
+  //   average = nmr->kExternNMRAverage;
+  
+  // // Write the data to an output file
+  
+  // for(std::vector<double>::iterator it = samples.begin(); it != samples.end(); it++) std_dev += std::pow(*it - average, 2);
+
+  // std_dev /= std::pow(total_events,2);
+  // std_dev = std::sqrt(std_dev);
+  
+  // if(nmr->bExternNMRAverageSet)
+  //   std_dev = nmr->kExternNMRError;
+  
+  // std::cout << "PDP Average: " << average << " "
+  // 	    << std_dev << std::endl;
+  
+  // count = 0;
+  // if(nmr->bWriteOutputFile){    
+  //   for(std::vector<double>::iterator it = samples.begin(); it != samples.end(); it++){
+  //     nmr_file << (nmr->kDataSet) + 0.001*count  << "\t"
+  // 	       << *it/average << "\t"
+  // 	       << (*it/average)*std::sqrt( std::pow(std_dev/average, 2)) << std::endl;
+  //     count++;
+  //   }
+  // }
+
+  // count = 0;
+  // average = 0;
+  // std_dev = 0;
+  // total_events = 0;
+  // samples.clear();
   
   // Begin analysis of lanl data
   
@@ -209,95 +205,34 @@ int main(int argc, char *argv[])
 	central_frequency = lanl->GetValue<double>("central_frequency", 0);
 	modulation = 0.5*steps*(lanl->GetValue<double>("step_size", 0));          
 	
-	TH1D *hist = new TH1D("hist", "hist", steps, central_frequency - modulation, central_frequency + modulation);
-	
 	for(unsigned int j = 0; j < (unsigned int)(lanl->entry.at(i)->data.size()); j++){
 	  lanl->entry.at(i)->frequency.push_back( (central_frequency - modulation) + j*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
-	  hist->Fill(lanl->entry.at(i)->frequency.back(), (lanl->kScaleFactor)*(lanl->entry.at(i)->data[j])/0.0579478);
-	}
-	hist->Smooth(1);
-	hist->SetLineWidth(2);
-	hist->SetTitle(Form("Average Proton NMR Signal: Event# %d", event_number));
-	hist->Draw("hist");
-
-	hist->GetXaxis()->SetRange(20,500);
-	
-	TH1D *background = (TH1D *)hist->ShowBackground(200, "same");
-	TH1D *difference = (TH1D *)hist->Clone();
-	difference->SetName("diff");
-	difference->Add(background, -1.0);
-	
-	canvas->cd(2);
-	difference->SetLineColor(kBlue+2);
-	difference->SetFillColor(kBlue-8);
-	difference->Draw("hist");
-
-	lal = new TH1D("lanl", "lanl", steps, central_frequency - modulation, central_frequency + modulation);
-	lal = (TH1D *)difference->Clone();
-	
-	spectrum->Search(difference, 2, "goff", 0.01);
-	
-	std::cout << "Peaks found LANL: " << spectrum->GetNPeaks() << std::endl;
-	for(int j = 0; j < 4; j++){
-	  std::cout <<  spectrum->GetPositionX()[j] << " " << spectrum->GetPositionY()[j] << std::endl;
 	}
 
-	canvas->SaveAs(Form("histogram_lanl%d.C", i));
+	TGraph *lal  = new TGraph(steps, lanl->entry.at(i)->frequency.data(), lanl->entry.at(i)->data.data());
+	lal->SetMarkerStyle(kFullDotMedium);
+	lal->SetMarkerColor(kRed+2);
+	lal->Draw("ac");
+
+	canvas->SaveAs(Form("lanl_histogram%d.C", i));
+	canvas->Clear();
 	
-	average += difference->Integral();
-	
-	samples.push_back(difference->Integral());
-	
-	delete hist;
-	delete background;
-	delete difference;
+	delete lal;
       }
-    total_events += lanl->entry.size();    
-    lanl->Clear();
   }
 
-  average /= total_events;
-    
-  if(lanl->bExternLANLAverageSet)
-    average = lanl->kExternLANLAverage;
-    
-  for(std::vector<double>::iterator it = samples.begin(); it != samples.end(); it++) std_dev += std::pow(*it - average, 2);
-  std_dev /= std::pow(total_events,2);
-  std_dev = std::sqrt(std_dev);
-  
-  if(lanl->bExternLANLAverageSet)
-    std_dev = lanl->kExternLANLError;
-  
-  std::cout << "LANL Average: " << average << " "
-	    << std_dev << std::endl;
-  
-  count = 0;
-  
-  if(lanl->bWriteOutputFile){      
-    for(std::vector<double>::iterator it = samples.begin(); it != samples.end(); it++){
-      lanl_file << (nmr->kDataSet) + 0.001*count  << "\t"
-		<< *it/average << "\t"
-		<< (*it/average)*std::sqrt( std::pow(std_dev/average, 2)) << std::endl;
-      count++;
-    }
-  }
-
-  canvas->Divide(1,1);
+  lanl_average = lanl->ComputeSignalAverage(lanl->entry);
+  TGraph *lanl_avg  = new TGraph(steps, lanl->entry.at(0)->frequency.data(), lanl_average.data());
+  lanl_avg->SetMarkerStyle(kFullDotMedium);
+  lanl_avg->SetMarkerColor(kRed+2);
+ 
   canvas->cd();
-
-  pdp->Draw("hist");
-  pdp->SetLineColor(kBlue+2);
-  pdp->SetFillColor(kBlue-8);
-
-  lal->Draw("hist same");
-  pdp->SetLineColor(kRed+2);
-  pdp->SetFillColor(kRed-8);
   
+  mgraph->Add(pdp_avg);
+  mgraph->Add(lanl_avg);
+  mgraph->Draw("ap");
   canvas->SaveAs("comp.C");
-      
-  average = 0;
-  std_dev = 0;
-  samples.clear();
-  */  
+
+  
   return(0);
 }
