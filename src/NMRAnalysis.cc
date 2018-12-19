@@ -113,11 +113,11 @@ void NMRAnalysis::ReadConfigurationMap()
   return;
 }
 
-std::vector <double> NMRAnalysis::ComputeSignalAverage(std::vector<run *> signal)
+std::vector <double> NMRAnalysis::ComputeSignalAverage(std::vector<run *> signal, const char *type)
 {
   int i = 0;
   int j = 0;
-  
+
   std::vector <double> average;
 
   average.resize(signal.front()->data.size());
@@ -134,24 +134,28 @@ std::vector <double> NMRAnalysis::ComputeSignalAverage(std::vector<run *> signal
     i = std::distance(average.begin(), it);
     average.at(i) /= signal.size();
   }
-
+  
   return average;
 }
 
-void NMRAnalysis::ScaleData(double scale)
+std::vector <double> NMRAnalysis::ScaleData(double scale, std::vector <double> data)
 {
-  for(int i = 0; i < entry.size(); i ++){
-    for(int j = 0; j < entry.at(i)->data.size(); j++){
-      scale*(entry.at(i)->data.at(j));
+  for(std::vector <double>::iterator it = data.begin(); it != data.end(); it++)
+    {
+      (*it) *= scale;
     }
-  }
-
+  return data;
 }
 
-std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> signal, std::vector <double> frequency, double x0, double x1, double x2, double x3){
+std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> signal, std::vector <double> frequency, double x0, double x1, double x2, double x3, const char *type){
+
   std::vector <double> y;
   std::vector <double> x;
   std::vector <double> fit;
+
+  std::fstream backfile;
+
+  int index;
   
   // *****************************************************************************
   //
@@ -168,7 +172,19 @@ std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> s
     x.push_back(frequency.at(i));
   }
 
-  param = this->PolynomialRegression(x, y);
+  backfile.open(Form("regression/%s_background.csv", type), std::fstream::in | std::fstream::out);
+  if(!(backfile.good())){
+    std::cerr << __FUNCTION__ << " >> Error opening output file: " << Form("regression/%s_background.csv", type) << std::endl;
+    exit(1);
+  }
+  
+  for(std::vector <double>::iterator it = y.begin(); it != y.end(); it++){
+    index = std::distance(y.begin(), it);
+    backfile << std::setprecision(10) << x.at(index) << "," << std::setprecision(10) << *it << std::endl;
+  }
+  backfile.close();
+
+  param = this->PolynomialRegression(x, y, type);
   
   TCanvas *c = new TCanvas("c", "c", 5);
   c->cd();
@@ -179,22 +195,23 @@ std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> s
   background->SetMarkerColor(kBlue+2);
   //  background->Draw("ac");
 
+  std::cout << " <<<< " << std::setprecision(10)
+	    << param.at(0) << " "
+   	    << param.at(1) << " "
+       	    << param.at(2) << " "
+       	    << param.at(3) << " "
+     	    << param.at(4) << std::endl;
 
   for(std::vector <double>::iterator it = frequency.begin(); it != frequency.end(); it++){
-    // fit.push_back(182838.1462 + (-0.145860896)*(*it) + (-21.8209781)*(std::pow(*it, 2)) + (0.129768830)*(std::pow(*it, 3)) + (-0.000217046497)*(std::pow(*it, 4)) );
-    fit.push_back(param.at(0)
-		  + (param.at(1))*(*it)
-		  + (param.at(2))*(std::pow(*it, 2))
-		  + (param.at(3))*(std::pow(*it, 3))
-		  + (param.at(4))*(std::pow(*it, 4)));
+    fit.push_back(param.at(0) + (param.at(1))*(*it) + (param.at(2))*(std::pow(*it, 2)) + + (param.at(3))*(std::pow(*it, 3)) + (param.at(4))*(std::pow(*it, 4)));
   }
- TGraph *fgraph = new TGraph(frequency.size(), frequency.data(), fit.data());
- fgraph->SetMarkerColor(kRed+2);
-														     
- mgraph->Add(background);
- mgraph->Add(fgraph);
- mgraph->Draw("ap");
-
+  TGraph *fgraph = new TGraph(frequency.size(), frequency.data(), fit.data());
+  fgraph->SetMarkerColor(kRed+2);
+  
+  mgraph->Add(background);
+  mgraph->Add(fgraph);
+  mgraph->Draw("ap");
+  
   c->SaveAs("background.C");  
   
   return fit;
@@ -225,53 +242,112 @@ std::vector <double> NMRAnalysis::GradientDescent(std::vector <double> x, std::v
   return coeff;
 }
 
-std::vector <double> NMRAnalysis::PolynomialRegression(std::vector <double> x, std::vector <double> y)
+std::vector <double> NMRAnalysis::PeakFinder(std::vector <double> y)
 {
+  TH1F *signal = new TH1F("signal", "signal", 500, 0, 500);
+  TSpectrum *spectrum = new TSpectrum();
   
-  // ********************************************
-  double determinant;
-  const int order = 4;
+  int i = 0;
+  int peakfound = 0;
   
-  TMatrixD polyX(x.size(), order + 1);
-  TMatrixD polyY(x.size(), 1);
-  
-  for(int i = 0; i < x.size(); i++){
-    for(int j = 0; j < (order + 1); j++){
-      polyX(i, j) = std::pow(x.at(i), j);
-    }
-    polyY(i, 0) = y.at(i);
+  std::vector <double> peaks;
+
+  for(std::vector <double>::iterator it = y.begin(); it != y.end(); it++){
+    i = std::distance(y.begin(), it);
+    signal->Fill(i, *it);
   }
-  
-  // polyX.Print("%11.10f");
-  // polyY.Print("%11.10f");
+  // signal->Draw("hist");
 
-  TMatrixD transX(order + 1, x.size());
-  transX.Transpose(polyX);
-  // transX.Print("%11.10f");
-
-  TMatrixD polyXX(order + 1, order + 1);
-  polyXX.Mult(transX, polyX);
-  // polyXX.Print("%11.10f");
-
-  TMatrixD inverseXX = polyXX;
-  inverseXX.Invert(&determinant);
-  // inverseXX.Print("%11.10f");
-
-  // std::cout << "Determinant >>>> " << determinant << std::endl;
-
-  TMatrixD polyXXX(order + 1, x.size());
-  polyXXX.Mult(inverseXX, transX);
-  // polyXXX.Print("%11.10f");
-
-  TMatrixD coeff(order + 1, 1);
-  coeff.Mult(polyXXX, polyY);
-  coeff.Print("%11.10f");
-
-  for(int i = 0; i < (order + 1); i++){
-    param.push_back(coeff(i, 0));
+  peakfound = spectrum->Search(signal, 2, "nobackground", 0.05);
+  for(int j = 0; j < peakfound; j++){
+    std::cout << "PEAKS: " << spectrum->GetPositionX()[j] << "\t" << spectrum->GetPositionY()[j] << std::endl;
+    peaks.push_back(spectrum->GetPositionY()[j]);
   }
+
+  delete signal;
+  delete spectrum;
   
-  return param;
+  return peaks;
+}
+
+std::vector <double> NMRAnalysis::PolynomialRegression(std::vector <double> x, std::vector <double> y, const char *type)
+{
+  std::fstream regression;  
+  std::vector <double> coefs;
+  std::string line;
+
+  int ret = 0;
+  
+  SplitVec.clear();
+  
+  ret = std::system(Form("python regression/pyreg.py -f %s_background -o %s", type, type));
+  
+  regression.open(Form("regression/%s_coefficients.csv", type), std::fstream::in | std::fstream::out);
+  if( !(regression.good()) ){
+    std::cerr << __FUNCTION__ << " >> Error opening output file: " << Form("regression/%s_coefficients.csv", type) << std::endl;
+  }
+
+  while(!regression.eof()){
+    std::getline(regression, line);
+    if((unsigned)strlen(line.c_str()) == 0) continue;
+
+    boost::split(SplitVec, line, boost::is_any_of(",\t"));
+  }
+  for(std::vector <std::string>::iterator it = SplitVec.begin(); it != SplitVec.end(); it++){
+    coefs.push_back(stod(*it));
+  }
+
+  return coefs;
+  
+}
+
+// std::vector <double> NMRAnalysis::PolynomialRegression(std::vector <double> x, std::vector <double> y)
+// {
+  
+//   // ********************************************
+//   double determinant;
+//   const int order = 4;
+  
+//   TMatrixD polyX(x.size(), order + 1);
+//   TMatrixD polyY(x.size(), 1);
+  
+//   for(int i = 0; i < x.size(); i++){
+//     for(int j = 0; j < (order + 1); j++){
+//       polyX(i, j) = std::pow(x.at(i), j);
+//     }
+//     polyY(i, 0) = y.at(i);
+//   }
+  
+//   // polyX.Print("%11.10f");
+//   // polyY.Print("%11.10f");
+
+//   TMatrixD transX(order + 1, x.size());
+//   transX.Transpose(polyX);
+//   // transX.Print("%11.10f");
+
+//   TMatrixD polyXX(order + 1, order + 1);
+//   polyXX.Mult(transX, polyX);
+//   // polyXX.Print("%11.10f");
+
+//   TMatrixD inverseXX = polyXX;
+//   inverseXX.Invert(&determinant);
+//   // inverseXX.Print("%11.10f");
+
+//   // std::cout << "Determinant >>>> " << determinant << std::endl;
+
+//   TMatrixD polyXXX(order + 1, x.size());
+//   polyXXX.Mult(inverseXX, transX);
+//   // polyXXX.Print("%11.10f");
+
+//   TMatrixD coeff(order + 1, 1);
+//   coeff.Mult(polyXXX, polyY);
+//   coeff.Print("%11.10f");
+
+//   for(int i = 0; i < (order + 1); i++){
+//     param.push_back(coeff(i, 0));
+//   }
+  
+//   return param;
   
   // *********************************************
 
@@ -316,7 +392,7 @@ std::vector <double> NMRAnalysis::PolynomialRegression(std::vector <double> x, s
 
   return 0;
   */
-}
+//}
 
 void NMRAnalysis::ReadConfigurationMap(const char *mapfile)
 {
@@ -702,7 +778,7 @@ void NMRAnalysis::GetOptions(char **options){
     }
     if(flag.compare("--data-set") == 0){
       std::string opt(options[i+1]);
-      kDataSet = atof(opt.c_str());
+      kDataSet = atoi(opt.c_str());
       flag.clear();
     }
     if(flag.compare("--graphics") == 0){

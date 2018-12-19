@@ -14,6 +14,7 @@
 #include <map>
 #include <cctype>
 #include <typeinfo>
+#include <iomanip>
 
 // ROOT libraries
 
@@ -23,6 +24,8 @@
 #include "TGraph.h"
 #include "TMultiGraph.h"
 #include "TMatrixD.h"
+#include "TH1.h"
+#include "TSpectrum.h"
 
 // BOOST c++ libraries
 
@@ -74,9 +77,10 @@ public:
   bool bExternNMRAverageSet;
   bool bExternLANLAverageSet;
   bool bWriteOutputFile;
+
+  int kDataSet;
   
   double kScaleFactor;
-  double kDataSet;
   double kExternLANLAverage;
   double kExternNMRAverage;
   double kExternLANLError;
@@ -115,19 +119,17 @@ public:
   void PrintData();
   void Clear();
   void Sort(std::vector <boost::filesystem::path> &, std::vector <boost::filesystem::path> &);
-  void ScaleData(double);
-  
-  std::vector <double> PolynomialRegression(std::vector <double>, std::vector <double>);
 
-  
-  std::vector <double> ComputeBackgroundSignal(std::vector <double>, std::vector <double>, double, double, double, double);
-  
-  std::vector <double> ComputeSignalAverage(std::vector <run *> );
+  std::vector <double> ScaleData(double, std::vector <double>);
+  std::vector <double> PolynomialRegression(std::vector <double>, std::vector <double>, const char *);
+  std::vector <double> ComputeBackgroundSignal(std::vector <double>, std::vector <double>, double, double, double, double, const char *);
+  std::vector <double> ComputeSignalAverage(std::vector <run *>, const char *);
+  std::vector <double> GradientDescent(std::vector <double>, std::vector <double>, std::vector <double>, double);
+  std::vector <double> PeakFinder(std::vector <double>);
   
   std::vector <boost::filesystem::path> GetFileList(const boost::filesystem::path&, const std::string);
   
   std::pair<bool, const char *> FindSetting(const char *);
-  std::vector <double> GradientDescent(std::vector <double>, std::vector <double>, std::vector <double>, double);
   
   template <typename T> T GetValue(const char *, int);
   template <typename T> std::vector<T> Get(const char *);

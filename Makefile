@@ -9,7 +9,7 @@ LIB        = -L/usr/lib64/ -lboost_system -lboost_filesystem
 INCLUDES   = -I$(shell root-config --incdir) -Iinclude/ -I/usr/include/
 CC         = g++ ${INCLUDES}
 SRC        = src
-CFLAGS     = -O -Wall ${INCLUDES} ${LIB}
+CFLAGS     = -O -Wall ${INCLUDES} ${LIB} -Wunused-but-set-variable
 
 all: nmranalysis
 
