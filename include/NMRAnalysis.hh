@@ -125,7 +125,7 @@ public:
   std::vector <double> ComputeBackgroundSignal(std::vector <double>, std::vector <double>, double, double, double, double, const char *);
   std::vector <double> ComputeSignalAverage(std::vector <run *>, const char *);
   std::vector <double> GradientDescent(std::vector <double>, std::vector <double>, std::vector <double>, double);
-  std::vector <double> PeakFinder(std::vector <double>);
+  std::vector <double> PeakFinder(std::vector <double>, std::string type);
   
   std::vector <boost::filesystem::path> GetFileList(const boost::filesystem::path&, const std::string);
   

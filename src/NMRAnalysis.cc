@@ -1,4 +1,4 @@
-#ifndef nmr_analysis_cc
+ #ifndef nmr_analysis_cc
 #define nmr_analysis_cc
 
 #include "NMRAnalysis.hh"
@@ -180,7 +180,7 @@ std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> s
   
   for(std::vector <double>::iterator it = y.begin(); it != y.end(); it++){
     index = std::distance(y.begin(), it);
-    backfile << std::setprecision(10) << x.at(index) << "," << std::setprecision(10) << *it << std::endl;
+    backfile << std::setprecision(20) << x.at(index) << "," << std::setprecision(20) << *it << std::endl;
   }
   backfile.close();
 
@@ -195,15 +195,15 @@ std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> s
   background->SetMarkerColor(kBlue+2);
   //  background->Draw("ac");
 
-  std::cout << " <<<< " << std::setprecision(10)
+  std::cout << " <<<< " << std::setprecision(20)
 	    << param.at(0) << " "
    	    << param.at(1) << " "
        	    << param.at(2) << " "
-       	    << param.at(3) << " "
-     	    << param.at(4) << std::endl;
+       	    << param.at(3) << std::endl;//" "
+  //     	    << param.at(4) << std::endl;
 
   for(std::vector <double>::iterator it = frequency.begin(); it != frequency.end(); it++){
-    fit.push_back(param.at(0) + (param.at(1))*(*it) + (param.at(2))*(std::pow(*it, 2)) + + (param.at(3))*(std::pow(*it, 3)) + (param.at(4))*(std::pow(*it, 4)));
+    fit.push_back(param.at(0) + (param.at(1))*(*it) + (param.at(2))*(std::pow(*it, 2)) + (param.at(3))*(std::pow(*it, 3)))/* + (param.at(4))*(std::pow(*it, 4)))*/;
   }
   TGraph *fgraph = new TGraph(frequency.size(), frequency.data(), fit.data());
   fgraph->SetMarkerColor(kRed+2);
@@ -212,7 +212,7 @@ std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> s
   mgraph->Add(fgraph);
   mgraph->Draw("ap");
   
-  c->SaveAs("background.C");  
+  c->SaveAs(Form("%s_background_%d.C", type, this->kDataSet));  
   
   return fit;
 }
@@ -242,7 +242,7 @@ std::vector <double> NMRAnalysis::GradientDescent(std::vector <double> x, std::v
   return coeff;
 }
 
-std::vector <double> NMRAnalysis::PeakFinder(std::vector <double> y)
+std::vector <double> NMRAnalysis::PeakFinder(std::vector <double> y, std::string type)
 {
   TH1F *signal = new TH1F("signal", "signal", 500, 0, 500);
   TSpectrum *spectrum = new TSpectrum();
@@ -252,20 +252,27 @@ std::vector <double> NMRAnalysis::PeakFinder(std::vector <double> y)
   
   std::vector <double> peaks;
 
+  TCanvas *c = new TCanvas("c", "c", 5);
+  
   for(std::vector <double>::iterator it = y.begin(); it != y.end(); it++){
     i = std::distance(y.begin(), it);
     signal->Fill(i, *it);
   }
-  // signal->Draw("hist");
 
+  c->cd();
+  signal->Draw("hist");
+  
   peakfound = spectrum->Search(signal, 2, "nobackground", 0.05);
   for(int j = 0; j < peakfound; j++){
     std::cout << "PEAKS: " << spectrum->GetPositionX()[j] << "\t" << spectrum->GetPositionY()[j] << std::endl;
     peaks.push_back(spectrum->GetPositionY()[j]);
   }
 
+  c->SaveAs(Form("output/%s_peaks.C", type.c_str()));
+  
   delete signal;
   delete spectrum;
+  delete c;
   
   return peaks;
 }

@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
   // *******************************************************************************************
   //
   // Calculate the residuals from the background subtraction and use them to estimate a lower 
-  // bound for the area calcualtion.
+  // bound for the area calculation.
   //
   // *******************************************************************************************
 
@@ -195,15 +195,18 @@ int main(int argc, char *argv[])
   mgraph_pdp->GetXaxis()->SetTitle("Frequency (MHz)");
   mgraph_pdp->GetYaxis()->SetTitle("Signal Amplitude");
 
-  mgraph_pdp->Add(pdp_avg);  mgraph_pdp->Add(pdp_sub);
+  mgraph_pdp->Add(pdp_avg);
+  mgraph_pdp->Add(pdp_sub);
   mgraph_pdp->Draw("ac");
  
   canvas->SaveAs(Form("output/pdp_comparison_data_set_%d.C", nmr->kDataSet));
 
   std::cout << "PDP Computed integral: " << pdp_sub->Integral() << " +- " << area_error << std::endl;
 
-  nmr->PeakFinder(subtracted);
+  nmr->PeakFinder(subtracted, "pdp");
 
+  for(int k = 180; k < 320; k++) std::cout << "@@@@ " <<  k << " " << subtracted.at(k) << std::endl; 
+  
   // Begin analysis of lanl data
 
   fit.clear();
@@ -266,14 +269,14 @@ int main(int argc, char *argv[])
 
   fit = lanl->ComputeBackgroundSignal(lanl_average,
 				      lanl->entry.at(0)->frequency,
-				      0.0, 100.0, 400.0, 500.0, "lanl");
+				      0.0, 5.0, 450.0, 500.0, "lanl");
   
   index = 0;
   offset = 0;
   
   for(std::vector <double>::iterator it = fit.begin(); it != fit.end(); it++){
     index = std::distance(fit.begin(), it);
-    subtracted.push_back(lanl->entry.at(0)->data.at(index) - (*it));
+    subtracted.push_back(lanl->entry.at(0)->data.at(index) - (*it) - offset);
   }
 
   if(std::abs(subtracted.front()) > 1e-6){
@@ -348,9 +351,9 @@ int main(int argc, char *argv[])
   
   std::cout << "LANL Computed integral: " << lanl_sub->Integral() << " +- " << area_error << std::endl;
 
-  lanl->PeakFinder(subtracted);
+  lanl->PeakFinder(subtracted, "lanl");
 
-  // for(int k = 100; k < 400; k++) std::cout << "@@@@ " <<  k << " " << subtracted.at(k) << std::endl; 
+  for(int k = 180; k < 320; k++) std::cout << "@@@@ " <<  k << " " << subtracted.at(k) << std::endl; 
   
   canvas->Clear();
 
