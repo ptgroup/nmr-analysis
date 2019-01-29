@@ -1,4 +1,4 @@
- #ifndef nmr_analysis_cc
+#ifndef nmr_analysis_cc
 #define nmr_analysis_cc
 
 #include "NMRAnalysis.hh"
@@ -138,6 +138,46 @@ std::vector <double> NMRAnalysis::ComputeSignalAverage(std::vector<run *> signal
   return average;
 }
 
+std::vector <double> NMRAnalysis::ComputeSignalError(std::vector<run *> signal, const char *type)
+{
+  int i = 0;
+  int j = 0;
+
+  std::vector <double> average;
+  std::vector <double> error;
+
+  average.resize(signal.front()->data.size());
+  error.resize(signal.front()->data.size());
+  
+  for(std::vector <run *>::iterator it = signal.begin(); it != signal.end(); it++){
+    i = std::distance(signal.begin(), it);
+    for(std::vector <double>::iterator jt = signal.at(i)->data.begin(); jt != signal.at(i)->data.end(); jt++){
+      j = std::distance(signal.at(i)->data.begin(), jt);
+      average.at(j) += *jt;
+    }
+  }
+
+  for(std::vector <double>::iterator it = average.begin(); it != average.end(); it++){
+    i = std::distance(average.begin(), it);
+    average.at(i) /= signal.size();
+  }
+
+  for(std::vector <run *>::iterator it = signal.begin(); it != signal.end(); it++){
+    i = std::distance(signal.begin(), it);
+    for(std::vector <double>::iterator jt = signal.at(i)->data.begin(); jt != signal.at(i)->data.end(); jt++){
+      j = std::distance(signal.at(i)->data.begin(), jt);
+      error.at(i) += std::pow(average.at(i) - *jt, 2);
+    }
+  }
+
+  for(std::vector <double>::iterator it = error.begin(); it != error.end(); it++){
+    i = std::distance(error.begin(), it);
+    error.at(i) = std::sqrt(error.at(i))/signal.size();
+  }
+  
+  return error;
+}
+
 std::vector <double> NMRAnalysis::ScaleData(double scale, std::vector <double> data)
 {
   for(std::vector <double>::iterator it = data.begin(); it != data.end(); it++)
@@ -172,7 +212,7 @@ std::vector <double> NMRAnalysis::ComputeBackgroundSignal(std::vector <double> s
     x.push_back(frequency.at(i));
   }
 
-  backfile.open(Form("regression/%s_background.csv", type), std::fstream::in | std::fstream::out);
+  backfile.open(Form("regression/%s_background.csv", type), std::fstream::in | std::fstream::out | std::fstream::trunc );
   if(!(backfile.good())){
     std::cerr << __FUNCTION__ << " >> Error opening output file: " << Form("regression/%s_background.csv", type) << std::endl;
     exit(1);

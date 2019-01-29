@@ -50,7 +50,8 @@ int main(int argc, char *argv[])
   
   std::vector <double> pdp_average;
   std::vector <double> lanl_average;
-
+  std::vector <double> pdp_error;
+  std::vector <double> lanl_error;
     
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
 
@@ -58,6 +59,14 @@ int main(int argc, char *argv[])
 
   nmr_file.open(Form("output/nmr_%s", (nmr->fOutputFile.c_str())), std::fstream::in | std::fstream::app | std::fstream::out);
   if( !(nmr_file.good()) ){
+    std::cerr << __FUNCTION__ << " >> Error opening output file: " << nmr->fOutputFile << std::endl;
+    exit(1);
+  }
+
+  std::fstream nmr_area;
+
+  nmr_area.open(Form("output/nmr_area_%s", (nmr->fOutputFile.c_str())), std::fstream::in | std::fstream::app | std::fstream::out);
+  if( !(nmr_area.good()) ){
     std::cerr << __FUNCTION__ << " >> Error opening output file: " << nmr->fOutputFile << std::endl;
     exit(1);
   }
@@ -92,12 +101,15 @@ int main(int argc, char *argv[])
 
 	//	canvas->SaveAs(Form("output/pdp_histogram%d.C", i));
 	canvas->Clear();
+
+	nmr_area << i << "\t" << pdp->Integral() << std::endl;
 	
 	delete pdp;
       }
   }
 
   pdp_average = nmr->ComputeSignalAverage(nmr->entry, "pdp");
+  pdp_error = nmr->ComputeSignalAverage(nmr->entry, "pdp");
   
   std::vector <double> fit = nmr->ComputeBackgroundSignal(pdp_average,
     							  nmr->entry.at(0)->frequency,
@@ -171,9 +183,13 @@ int main(int argc, char *argv[])
 
   area_error = 2*modulation*residual;  
 
+  std::vector <double> zero(steps);
+  std::fill(zero.begin(), zero.end(), 0);
+  
   canvas->cd();
   TMultiGraph *mgraph_pdp = new TMultiGraph();
 
+  // TGraphErrors *pdp_avg  = new TGraphErrors(steps, nmr->entry.at(0)->frequency.data(), pdp_average.data(), zero.data(), pdp_error.data());
   TGraph *pdp_avg  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), pdp_average.data());
   pdp_avg->SetMarkerStyle(kFullDotMedium);
   pdp_avg->SetLineColor(kGreen+2);
@@ -181,6 +197,7 @@ int main(int argc, char *argv[])
   pdp_avg->SetLineWidth(2);
   pdp_avg->Draw();
   
+  // TGraphErrors *pdp_sub  = new TGraphErrors(steps, nmr->entry.at(0)->frequency.data(), subtracted.data(), zero.data(), pdp_error.data());
   TGraph *pdp_sub  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), subtracted.data());
   pdp_sub->SetMarkerStyle(kFullDotMedium);
   pdp_sub->SetLineColor(kMagenta+1);
@@ -235,6 +252,9 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  double th = 0;
+  double tl = 0;
+  
   for(unsigned int file = 0; file < (unsigned int)lanl_data_files.size(); file++){
   
     lanl->OpenDataFile((std::string("data/lanl_data/data/")+lanl_data_files.at(file).string()).c_str());
@@ -248,6 +268,11 @@ int main(int argc, char *argv[])
 	steps = lanl->GetValue<int>("sweeps", 0);
 	central_frequency = lanl->GetValue<double>("central_frequency", 0);
 	modulation = 0.5*steps*(lanl->GetValue<double>("step_size", 0));          
+
+	tl = lanl->GetValue<double>("time_low", i);
+	th = lanl->GetValue<double>("time_high", i);
+
+	std::cout << ">>>>> Time: " << (1e5)*th + tl - 2082844800   << std::endl;
 	
 	for(unsigned int j = 0; j < (unsigned int)(lanl->entry.at(i)->data.size()); j++){
 	  lanl->entry.at(i)->frequency.push_back( (central_frequency - modulation) + j*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
@@ -269,7 +294,7 @@ int main(int argc, char *argv[])
 
   fit = lanl->ComputeBackgroundSignal(lanl_average,
 				      lanl->entry.at(0)->frequency,
-				      0.0, 5.0, 450.0, 500.0, "lanl");
+				      0.0, 100.0, 400.0, 500.0, "lanl");
   
   index = 0;
   offset = 0;
@@ -308,7 +333,7 @@ int main(int argc, char *argv[])
   
   mgraph_lanl->Add(lanl_avg);
   mgraph_lanl->Add(lanl_sub);
-  mgraph_lanl->Draw("ac");
+  mgraph_lanl->Draw("ap");
   mgraph_lanl->GetXaxis()->SetTitleSize(0.025);
   mgraph_lanl->GetYaxis()->SetTitleSize(0.025);
   mgraph_lanl->GetXaxis()->SetLabelSize(0.025);
@@ -351,6 +376,12 @@ int main(int argc, char *argv[])
   
   std::cout << "LANL Computed integral: " << lanl_sub->Integral() << " +- " << area_error << std::endl;
 
+
+  double sum = 0;
+  for(std::vector<double>::iterator it = subtracted.begin(); it != subtracted.end(); it++) sum += *it;
+
+  std::cout << "LANL sum: " << sum << std::endl;
+    
   lanl->PeakFinder(subtracted, "lanl");
 
   for(int k = 180; k < 320; k++) std::cout << "@@@@ " <<  k << " " << subtracted.at(k) << std::endl; 
