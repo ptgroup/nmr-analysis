@@ -45,13 +45,11 @@ int main(int argc, char *argv[])
   int event_number = 0;
   int steps = 500;
   
-  float modulation;
+  float modulation = 0;
   float central_frequency;
   
   std::vector <double> pdp_average;
-  std::vector <double> lanl_average;
   std::vector <double> pdp_error;
-  std::vector <double> lanl_error;
     
   TCanvas *canvas = new TCanvas("canvas", "canvas", 5);
 
@@ -99,11 +97,8 @@ int main(int argc, char *argv[])
 	pdp->SetMarkerColor(kBlue+2);
 	pdp->Draw("ac");
 
-	//	canvas->SaveAs(Form("output/pdp_histogram%d.C", i));
 	canvas->Clear();
 
-	nmr_area << i << "\t" << pdp->Integral() << std::endl;
-	
 	delete pdp;
       }
   }
@@ -197,7 +192,6 @@ int main(int argc, char *argv[])
   pdp_avg->SetLineWidth(2);
   pdp_avg->Draw();
   
-  // TGraphErrors *pdp_sub  = new TGraphErrors(steps, nmr->entry.at(0)->frequency.data(), subtracted.data(), zero.data(), pdp_error.data());
   TGraph *pdp_sub  = new TGraph(steps, nmr->entry.at(0)->frequency.data(), subtracted.data());
   pdp_sub->SetMarkerStyle(kFullDotMedium);
   pdp_sub->SetLineColor(kMagenta+1);
@@ -220,172 +214,6 @@ int main(int argc, char *argv[])
 
   std::cout << "PDP Computed integral: " << pdp_sub->Integral() << " +- " << area_error << std::endl;
 
-  nmr->PeakFinder(subtracted, "pdp");
-
-  for(int k = 180; k < 320; k++) std::cout << "@@@@ " <<  k << " " << subtracted.at(k) << std::endl; 
-  
-  // Begin analysis of lanl data
-
-  fit.clear();
-  subtracted.clear();
-
-  event_number = 0;
-  steps = 0;
-  modulation = 0;
-  central_frequency = 0;
-  area_error = 0;
-  
-  NMRAnalysis *lanl = new NMRAnalysis();
-  
-  lanl->GetOptions(argv);
-
-  std::vector <boost::filesystem::path> lanl_data_files = lanl->GetFileList("data/lanl_data/data/", ".csv");
-  std::vector <boost::filesystem::path> lanl_settings_files = lanl->GetFileList("data/lanl_data/settings/", ".csv");
-
-  lanl->Sort(lanl_settings_files, lanl_data_files);   
-
-
-  std::fstream lanl_file;
-  lanl_file.open(Form("output/lanl_%s", (lanl->fOutputFile.c_str())), std::fstream::in | std::fstream::app | std::fstream::out);
-  if( !(lanl_file.good()) ){
-    std::cerr << __FUNCTION__ << " >> Error opening output file: " << std::endl;
-    exit(1);
-  }
-
-  double th = 0;
-  double tl = 0;
-  
-  for(unsigned int file = 0; file < (unsigned int)lanl_data_files.size(); file++){
-  
-    lanl->OpenDataFile((std::string("data/lanl_data/data/")+lanl_data_files.at(file).string()).c_str());
-    lanl->OpenSettingsFile((std::string("data/lanl_data/settings/") + lanl_settings_files.at(file).string()).c_str());
-    lanl->ReadConfigurationMap("lanl_map.cfg");
-    lanl->ReadNMRFiles();
-    
-    for(unsigned int i = 0; i < (unsigned int)(lanl->entry.size()); i++)
-      {
-	event_number = lanl->GetValue<int>("sweep_number", i);
-	steps = lanl->GetValue<int>("sweeps", 0);
-	central_frequency = lanl->GetValue<double>("central_frequency", 0);
-	modulation = 0.5*steps*(lanl->GetValue<double>("step_size", 0));          
-
-	tl = lanl->GetValue<double>("time_low", i);
-	th = lanl->GetValue<double>("time_high", i);
-
-	std::cout << ">>>>> Time: " << (1e5)*th + tl - 2082844800   << std::endl;
-	
-	for(unsigned int j = 0; j < (unsigned int)(lanl->entry.at(i)->data.size()); j++){
-	  lanl->entry.at(i)->frequency.push_back( (central_frequency - modulation) + j*((2*modulation)/steps) );  // f_lower = f_central - 0.4 and f_upper = f_central + 0.4
-	}
-
-	TGraph *lal  = new TGraph(steps, lanl->entry.at(i)->frequency.data(), lanl->entry.at(i)->data.data());
-	lal->SetMarkerStyle(kFullDotMedium);
-	lal->SetMarkerColor(kRed+2);
-	lal->Draw("ac");
-
-	//	canvas->SaveAs(Form("lanl_histogram%d.C", i));
-	canvas->Clear();
-	
-	delete lal;
-      }
-  }
-
-  lanl_average = lanl->ComputeSignalAverage(lanl->entry, "lanl");
-
-  fit = lanl->ComputeBackgroundSignal(lanl_average,
-				      lanl->entry.at(0)->frequency,
-				      0.0, 100.0, 400.0, 500.0, "lanl");
-  
-  index = 0;
-  offset = 0;
-  
-  for(std::vector <double>::iterator it = fit.begin(); it != fit.end(); it++){
-    index = std::distance(fit.begin(), it);
-    subtracted.push_back(lanl->entry.at(0)->data.at(index) - (*it) - offset);
-  }
-
-  if(std::abs(subtracted.front()) > 1e-6){
-    offset = subtracted.front();
-    for(std::vector <double>::iterator it = fit.begin(); it != fit.end(); it++){
-      index = std::distance(fit.begin(), it);
-      subtracted.at(index) = (lanl->entry.at(0)->data.at(index) - (*it) - offset);
-    }
-  }
-
-  canvas->cd();
-  TMultiGraph *mgraph_lanl = new TMultiGraph();
-
-  lanl_average = lanl->ComputeSignalAverage(lanl->entry, "lanl");
-  TGraph *lanl_avg  = new TGraph(steps, lanl->entry.at(0)->frequency.data(), lanl->entry.at(0)->data.data());
-  lanl_avg->SetMarkerStyle(kFullDotMedium);
-  lanl_avg->SetMarkerColor(kRed+2);
-  lanl_avg->SetLineColor(kRed+2);
-  lanl_avg->SetLineWidth(2);
-  lanl_avg->Draw();
-
-  
-  TGraph *lanl_sub  = new TGraph(steps, lanl->entry.at(0)->frequency.data(), subtracted.data());
-  lanl_sub->SetMarkerStyle(kFullDotMedium);
-  lanl_sub->SetMarkerColor(kBlue+2);
-  lanl_sub->SetLineColor(kBlue+2);
-  lanl_sub->SetLineWidth(2);
-  lanl_sub->Draw();
-  
-  mgraph_lanl->Add(lanl_avg);
-  mgraph_lanl->Add(lanl_sub);
-  mgraph_lanl->Draw("ap");
-  mgraph_lanl->GetXaxis()->SetTitleSize(0.025);
-  mgraph_lanl->GetYaxis()->SetTitleSize(0.025);
-  mgraph_lanl->GetXaxis()->SetLabelSize(0.025);
-  mgraph_lanl->GetYaxis()->SetLabelSize(0.025);
-  mgraph_lanl->GetXaxis()->SetTitle("Frequency (MHz)");
-  mgraph_lanl->GetYaxis()->SetTitle("Signal Amplitude");
-  
-  canvas->SaveAs(Form("output/lanl_comparison_data_set_%d.C", nmr->kDataSet));
-
-  residual = 0;
-
-  // Get residuals from subtracted only in the region we used to fit the background. These values should all be zero
-  // if our fit was perfect.
-  
-  for(int i = 0; i < 100; i++){
-    residual += std::pow(subtracted.at(i), 2);
-  }
-  for(int i = 399; i < 500; i++){
-    residual += std::pow(subtracted.at(i), 2);
-  }
-
-  // Calculte the standard error for the 200 points used to estimate the background
-  
-  residual = std::sqrt(residual)/200;
-
-  // ****************************************************************************************************************************
-  // We can't calculate the residual of the data in the signal area since we don't have and actual background so we will scale
-  // the error assuming is fairly consistent over the full signal spectrum.
-  //
-  //      Spectrum 0:500 bins
-  //      Background from 0:200 bins
-  //      Scale the background by (500 - 200)/200 = 1.5
-  //
-  //  ****************************************************************************************************************************
-
-  residual *= 1.5;
-  std::cout << "Standard Error LANL: " << residual << std::endl;
-    
-  area_error = 2*modulation*residual;  
-  
-  std::cout << "LANL Computed integral: " << lanl_sub->Integral() << " +- " << area_error << std::endl;
-
-
-  double sum = 0;
-  for(std::vector<double>::iterator it = subtracted.begin(); it != subtracted.end(); it++) sum += *it;
-
-  std::cout << "LANL sum: " << sum << std::endl;
-    
-  lanl->PeakFinder(subtracted, "lanl");
-
-  for(int k = 180; k < 320; k++) std::cout << "@@@@ " <<  k << " " << subtracted.at(k) << std::endl; 
-  
   canvas->Clear();
 
   canvas->cd();
@@ -397,12 +225,6 @@ int main(int argc, char *argv[])
   pdp_sub->SetMarkerColor(kBlue+2);
   pdp_sub->SetLineColor(kBlue+2);
   pdp_sub->SetLineWidth(2);
-  
-  mgraph->Add(lanl_sub);
-  lanl_sub->SetMarkerStyle(kFullDotMedium);
-  lanl_sub->SetMarkerColor(kRed+2);
-  lanl_sub->SetLineColor(kRed+2);
-  lanl_sub->SetLineWidth(2);
   
   mgraph->GetXaxis()->SetTitleSize(0.025);
   mgraph->GetYaxis()->SetTitleSize(0.025);
